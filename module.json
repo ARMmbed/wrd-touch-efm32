@@ -1,6 +1,6 @@
 {
   "name": "lesense-efm32",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Low-energy module for the EFM32",
   "author": "Marcus Chang",
   "homepage": "https://github.com/ARM-RD/lesense-efm32",
@@ -18,6 +18,6 @@
     "emlib": "ARM-RD/emlib",
     "nsassert": "ARM-RD/nsassert",
     "yterror": "ARM-RD/yterror"
-    },
+  },
   "targetDependencies": {}
 }
