@@ -1,0 +1,23 @@
+{
+  "name": "lesense-efm32",
+  "version": "0.0.0",
+  "description": "Low-energy module for the EFM32",
+  "author": "Marcus Chang",
+  "homepage": "https://github.com/ARM-RD/lesense-efm32",
+  "licenses": [
+    {
+      "url": "about:blank",
+      "type": ""
+    }
+  ],
+  "dependencies": {
+    "libobjc2": "ARM-RD/libobjc2",
+    "bootstrap": "ARM-RD/bootstrap",
+    "yottos": "ARM-RD/yottos",
+    "yottos-platform": "ARM-RD/yottos-platform",
+    "emlib": "ARM-RD/emlib",
+    "nsassert": "ARM-RD/nsassert",
+    "yterror": "ARM-RD/yterror"
+    },
+  "targetDependencies": {}
+}
