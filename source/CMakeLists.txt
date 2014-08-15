@@ -14,7 +14,6 @@ target_link_libraries(lesense
     objc2  # must always be first!
     emlib
     yottos
-    nsassert
     yottos_platform
     yterror
 )
