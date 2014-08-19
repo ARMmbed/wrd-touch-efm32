@@ -15,6 +15,7 @@ target_link_libraries(lesense
     emlib
     yottos
     yottos_platform
+    ytstatic
     yterror
 )
 
