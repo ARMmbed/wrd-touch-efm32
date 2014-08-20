@@ -36,7 +36,7 @@ extern "C" {
 static void lesenseInit();
 
 
-int32_t lesenseToActiveMap[NUM_LESENSE_CHANNELS];
+uint16_t lesenseToActiveMap[NUM_LESENSE_CHANNELS];
 
 /*  Setup and State Group
 */
@@ -78,11 +78,13 @@ static void cleanupCallback(struct CallbackNode** node);
 /*  Calibration Group 
     Functions and datastructures for handling calibration.
 */
+static bool useCalibrationValues = true;
 static calibrate_callback_t calibrateDoneCallback = nil;
 static uint8_t calibrationValueIndex = 0;
 static uint16_t calibrationValue[NUM_ACTIVE_CHANNELS][NUMBER_OF_CALIBRATION_VALUES];
 static uint16_t channelMaxValue[NUM_ACTIVE_CHANNELS];
 static uint16_t channelMinValue[NUM_ACTIVE_CHANNELS];
+static uint16_t channelCalValue[NUM_ACTIVE_CHANNELS];
 static uint16_t GetMedianValue(uint16_t* A, uint16_t N);
 /*  End Calibration Group */
 
@@ -90,7 +92,7 @@ static uint16_t GetMedianValue(uint16_t* A, uint16_t N);
     Datastructures for transferring data between interrupt handler and tasks.
 */
 static uint16_t channelsUsedMask = 0;
-static uint8_t numChannelsUsed = 0;
+static uint16_t numChannelsUsed = 0;
 static yt_tick_t lastEvent[2] = {0};
 static uint32_t lastScanres[2] = {0};
 static uint16_t transferBuffer[2][NUM_ACTIVE_CHANNELS];
@@ -111,7 +113,7 @@ static bool buttonWakeupTaskNotPosted = true;
    withCallOnPress:(yt_callback_t)callOnPress 
      callOnRelease:(yt_callback_t)callOnRelease 
        sensitivity:(uint32_t)sensitivityPercent
-        andUpdates:(bool)updates
+        andUpdates:(BOOL)updates
 {
   /*  Static class has no constructor. Run lesenseInit once to initialize 
       class variables.
@@ -125,14 +127,14 @@ static bool buttonWakeupTaskNotPosted = true;
 
   YTError result = ytError(YTSuccess);
 
-  int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+  uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
-  /*  Sanity check. activeChannel == -1 means the lesenseChannel has not been
-      configured for use and it can only be configured if there are available
-      active channel slots. 
+  /*  Sanity check. activeChannel == NUM_LESENSE_CHANNELS means the 
+      lesenseChannel has not been configured for use and it can only be 
+      configured if there are available active channel slots. 
   */
   if ((lesenseChannel >= NUM_LESENSE_CHANNELS) ||
-      (numChannelsUsed >= NUM_ACTIVE_CHANNELS && activeChannel == -1))
+      (numChannelsUsed >= NUM_ACTIVE_CHANNELS && activeChannel == NUM_LESENSE_CHANNELS))
   {
     result = ytError(YTBadRequest);
   }
@@ -143,7 +145,7 @@ static bool buttonWakeupTaskNotPosted = true;
 
         Callbacks are stored as linked lists. See the gpio-efm32 module for details.
     */
-    if (activeChannel == -1)
+    if (activeChannel == NUM_LESENSE_CHANNELS)
     {
       /*  Keep track of channels in use, users per channel, and maintain mapping 
           between active channelse and lesense channelse. The usage mask is for
@@ -201,7 +203,7 @@ static bool buttonWakeupTaskNotPosted = true;
       yt_callback_t initialCalibrationTask = ^{ 
         if (currentCount == numChannelsUsed)
         {
-          [self calibrateWithForce:NO thenCall:nil];
+          [self calibrateWithForce:NO andUpdate:YES thenCall:nil];
         } else
         {
           printf("abort calibration\n");
@@ -234,14 +236,14 @@ static bool buttonWakeupTaskNotPosted = true;
   /* Sanity check. */
   if (lesenseChannel < NUM_LESENSE_CHANNELS)
   {
-    int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+    uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
     /*  If lesenseChannel has been configured, remove callbacks (if any)
         and decrement number of users. If no users are left on this lesense
         channel, clean up data structures. If no users are left on any 
         channels, pause the lesense module.
     */
-    if (activeChannel != -1)
+    if (activeChannel != NUM_LESENSE_CHANNELS)
     {
       if (callOnPress)
       {
@@ -260,12 +262,12 @@ static bool buttonWakeupTaskNotPosted = true;
         cleanupCallback(&onPress[activeChannel]);
         cleanupCallback(&onRelease[activeChannel]);   
 
-        lesenseToActiveMap[lesenseChannel] = -1;
+        lesenseToActiveMap[lesenseChannel] = NUM_LESENSE_CHANNELS;
       }
 
       /* check if lesense can be turned off. */
       uint32_t totalUsers = 0;
-      for (int32_t allChannel = 0; 
+      for (uint16_t allChannel = 0; 
             allChannel < NUM_ACTIVE_CHANNELS; 
               allChannel++)
       {
@@ -286,9 +288,12 @@ static bool buttonWakeupTaskNotPosted = true;
     activity otherwise calibration will only commence when idle.
     The call back is called when calibration is complete.
 */
-+ (void)calibrateWithForce:(bool)forceCalibration
++ (void)calibrateWithForce:(BOOL)forceCalibration
+                 andUpdate:(BOOL)useNewValues
                   thenCall:(calibrate_callback_t)callback
 {
+
+
   if ((lesenseState == STATE_IDLE) || 
      ((lesenseState != STATE_CALIBRATION) && forceCalibration) )
   {
@@ -308,11 +313,13 @@ static bool buttonWakeupTaskNotPosted = true;
     LESENSE_ScanStart();
 
     lesenseState = STATE_CALIBRATION;
+    useCalibrationValues = useNewValues;
 
     if (callback)
     {
       calibrateDoneCallback = callback;
     }
+
     printf("calibration\n");
   }
   else if (lesenseState == STATE_CALIBRATION)
@@ -404,44 +411,51 @@ static bool buttonWakeupTaskNotPosted = true;
   }
 }
 
-+ (bool)channelIsActive:(uint32_t)lesenseChannel
++ (BOOL)channelIsActive:(uint32_t)lesenseChannel
 {
-  int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+  uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
   return alreadyPressed[activeChannel];
 }
 
-+ (int32_t)getValueForChannel:(uint32_t)lesenseChannel
++ (uint16_t)getValueForChannel:(uint32_t)lesenseChannel
 {
-  int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+  uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
   return transferBuffer[TRANSFER_BUFFER_BANK ^ 0x01][activeChannel];
 }
 
-+ (int32_t)getMaxValueForChannel:(uint32_t)lesenseChannel
++ (uint16_t)getCalibrationValueForChannel:(uint32_t)lesenseChannel
 {
-  int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+  uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
+
+  return channelCalValue[activeChannel];
+}
+
++ (uint16_t)getMaxValueForChannel:(uint32_t)lesenseChannel
+{
+  uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
   return channelMaxValue[activeChannel];
 }
 
-+ (int32_t)getMinValueForChannel:(uint32_t)lesenseChannel
++ (uint16_t)getMinValueForChannel:(uint32_t)lesenseChannel
 {
-  int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+  uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
   return channelMinValue[activeChannel];
 }
 
 + (void)setMaxValue:(uint16_t)maxValue forChannel:(uint32_t)lesenseChannel
 {
-  int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+  uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
   channelMaxValue[activeChannel] = maxValue;  
 }
 
 + (void)setMinValue:(uint16_t)minValue forChannel:(uint32_t)lesenseChannel
 {
-  int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+  uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
   channelMinValue[activeChannel] = minValue;  
 }
@@ -462,21 +476,25 @@ static bool buttonWakeupTaskNotPosted = true;
 /*  Private function for initializing the lesense module. */
 static void lesenseInit()
 {
-  for(int32_t activeChannel = 0; 
+  for(uint16_t activeChannel = 0; 
         activeChannel < NUM_ACTIVE_CHANNELS; 
           activeChannel++)
   {
     /* Init min and max values for each active channel */
     channelMaxValue[activeChannel] = 0;
+    channelCalValue[activeChannel] = 0;
     channelMinValue[activeChannel] = 0xffff;
     channelSensitivityPercent[activeChannel] = 100;
   }
 
+  /*  The lesenseChannel is always less than NUM_LESENSE_CHANNELS.
+      Use NUM_LESENSE_CHANNELS to indicate channel is not in use.
+  */
   for (uint32_t lesenseChannel = 0; 
         lesenseChannel < NUM_LESENSE_CHANNELS; 
           lesenseChannel++)
   {
-    lesenseToActiveMap[lesenseChannel] = -1;
+    lesenseToActiveMap[lesenseChannel] = NUM_LESENSE_CHANNELS;
   }
 
   ///////////////////////////////////////////////////////////////////////////////
@@ -691,7 +709,7 @@ yt_callback_t calibrationTask = ^{
   {
     if((channelsUsedMask >> lesenseChannel) & 0x01)
     {
-      int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+      uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
       calibrationValue[activeChannel][calibrationValueIndex] = 
         transferBuffer[TRANSFER_BUFFER_BANK ^ 0x01][activeChannel];
@@ -709,17 +727,28 @@ yt_callback_t calibrationTask = ^{
     {
       if((channelsUsedMask >> lesenseChannel) & 0x1)
       {
-        int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+        uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
-        /* reset the min-max values to use the median calibration value. */
-        channelMaxValue[activeChannel] = GetMedianValue(calibrationValue[activeChannel], NUMBER_OF_CALIBRATION_VALUES);
-        channelMinValue[activeChannel] = channelMaxValue[activeChannel];
+        /* Store the median. */
+        channelCalValue[activeChannel] = GetMedianValue(calibrationValue[activeChannel], NUMBER_OF_CALIBRATION_VALUES);
 
-        /* use the new max-value to set threshold based on sensitivity. */
-        uint32_t nominalCount = channelMaxValue[activeChannel];
-        LESENSE_ChannelThresSet(lesenseChannel, 0x0,(uint16_t) ((nominalCount * channelSensitivityPercent[activeChannel])/100) ); 
+        /*  The median can either be used automatically 
+            or the thresholds can be set manually. 
+        */
+        if (useCalibrationValues)
+        {
+          /* reset the min-max values to use the median calibration value. */
+          uint16_t nominalCount = channelCalValue[activeChannel];
+          channelMaxValue[activeChannel] = nominalCount;
+          channelMinValue[activeChannel] = nominalCount;
 
-        printf("%d %d\n", lesenseChannel, (nominalCount * channelSensitivityPercent[activeChannel])/100);
+          /* use the new max-value to set threshold based on sensitivity. */
+          uint16_t channelThreshold = ((uint32_t)nominalCount * 
+                    (uint32_t)channelSensitivityPercent[activeChannel]) / 100; 
+          LESENSE_ChannelThresSet(lesenseChannel, 0x0, channelThreshold); 
+
+          printf("%d %d\n", lesenseChannel, channelThreshold);          
+        }
       }
     }
 
@@ -794,9 +823,9 @@ yt_callback_t scanCompleteTask = ^{
       lesenseChannel < NUM_LESENSE_CHANNELS; 
         lesenseChannel++)
   {
-    int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+    uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
-    if (activeChannel != -1)
+    if (activeChannel != NUM_LESENSE_CHANNELS)
     {
       // threshold reached for this channel, i.e., button was pressed
       if (((localScanres & channelsUsedMask) >> lesenseChannel) & 0x01)
@@ -843,7 +872,7 @@ yt_callback_t scanCompleteTask = ^{
           }
         }
       } // end is-button-pressed-or-not
-    } // end activeChannel != -1
+    } // end activeChannel != NUM_LESENSE_CHANNELS
   } // end for-loop
 
   if (!localScanres)
@@ -852,7 +881,7 @@ yt_callback_t scanCompleteTask = ^{
         lesenseChannel < NUM_LESENSE_CHANNELS; 
           lesenseChannel++)
     {
-      int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+      uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
       NSAssert(!alreadyPressed[activeChannel], "buttons not released\n");
     }
@@ -922,7 +951,7 @@ void LESENSE_IRQHandler( void )
     {
       if((channelsUsedMask >> lesenseChannel) & 0x01)
       {
-        int32_t activeChannel = lesenseToActiveMap[lesenseChannel];
+        uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
         uint16_t value = LESENSE_ScanResultDataBufferGet(bufferIndex++);
         transferBuffer[TRANSFER_BUFFER_BANK][activeChannel] = value;
