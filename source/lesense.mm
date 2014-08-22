@@ -44,7 +44,9 @@ typedef enum {
   STATE_PAUSE,
   STATE_IDLE,
   STATE_CALIBRATION,
-  STATE_ACTIVE
+  STATE_CALIBRATION_PAUSE,
+  STATE_ACTIVE,
+  STATE_ACTIVE_PAUSE
 } state_t;
 
 static state_t lesenseState = STATE_PAUSE;
@@ -190,13 +192,7 @@ static bool buttonWakeupTaskNotPosted = true;
       /* Configure channel */
       LESENSE_ChannelConfig(&initLesenseCh, lesenseChannel);
 
-      /* set current state. (removing all channels sets the state to pause.) */
-      if (lesenseState == STATE_PAUSE)
-      {
-        lesenseState = STATE_IDLE;
-      }
-
-      /*  Post initial caliration task. The calibration is postponed if the number
+      /*  Post initial calibration task. The calibration is postponed if the number
           of channels in use has been changed since the task was posted.
       */
       uint32_t currentCount = numChannelsUsed;
@@ -293,9 +289,9 @@ static bool buttonWakeupTaskNotPosted = true;
                   thenCall:(calibrate_callback_t)callback
 {
 
-
-  if ((lesenseState == STATE_IDLE) || 
-     ((lesenseState != STATE_CALIBRATION) && forceCalibration) )
+  if ((lesenseState == STATE_PAUSE) || 
+      (lesenseState == STATE_IDLE) ||
+      ((lesenseState == STATE_ACTIVE) && forceCalibration))
   {
     LESENSE_ScanStop();
 
@@ -322,7 +318,8 @@ static bool buttonWakeupTaskNotPosted = true;
 
     printf("calibration\n");
   }
-  else if (lesenseState == STATE_CALIBRATION)
+  else if ((lesenseState == STATE_CALIBRATION) || 
+           (lesenseState == STATE_CALIBRATION_PAUSE))
   {
     printf("calibration in progress\n");
     if (callback)
@@ -342,16 +339,43 @@ static bool buttonWakeupTaskNotPosted = true;
 
 + (void)pause
 {
-  if (lesenseState != STATE_PAUSE)
-  {
-    lesenseState = STATE_PAUSE;    
-    LESENSE_ScanStop();
-  }  
+  printf("before: %d\n", lesenseState);
+
+  yt_callback_t delayedPauseTask = ^{
+
+    printf("after: %d\n", lesenseState);
+
+    if (lesenseState == STATE_ACTIVE)
+    {
+      lesenseState = STATE_ACTIVE_PAUSE;    
+    }
+    else if (lesenseState == STATE_CALIBRATION)
+    {
+      lesenseState = STATE_CALIBRATION_PAUSE;
+    }
+    else
+    {
+      lesenseState = STATE_PAUSE;
+      LESENSE_ScanStop();
+    }  
+
+    printf("after-after: %d\n", lesenseState);
+  };
+
+  ytPost(delayedPauseTask, ytMilliseconds(0));
 }
 
 + (void)resume
 {  
-  if (lesenseState == STATE_PAUSE)
+  if (lesenseState == STATE_ACTIVE_PAUSE)
+  {
+    lesenseState = STATE_ACTIVE;
+  }
+  else if (lesenseState == STATE_CALIBRATION_PAUSE)
+  {
+    lesenseState = STATE_CALIBRATION;
+  }
+  else if (lesenseState == STATE_PAUSE)
   {
     /* restore interrupts to channel/threshold */
     LESENSE_ScanStop();
@@ -754,19 +778,28 @@ yt_callback_t calibrationTask = ^{
 
     /* calibration done, switch back to normal mode */
     calibrationValueIndex = 0;
-    lesenseState = STATE_IDLE;
 
-    /* restore interrupts to channel/threshold */
     LESENSE_ScanStop();
 
-    /* Wait for current scan to finish */
-    while(LESENSE->STATUS & LESENSE_STATUS_SCANACTIVE); 
+    /* If pause has been called during calibration, do not start. */
+    if (lesenseState == STATE_CALIBRATION_PAUSE)
+    {
+      lesenseState = STATE_PAUSE;
+    }    
+    else
+    {
+      lesenseState = STATE_IDLE;
 
-    LESENSE_IntDisable(LESENSE_IEN_SCANCOMPLETE);
-    LESENSE_IntClear(_LESENSE_IFC_MASK);
-    LESENSE_IntEnable(channelsUsedMask);
-    LESENSE_ScanFreqSet(0, scanFrequencyIdle);
-    LESENSE_ScanStart();
+      /* Wait for current scan to finish */
+      while(LESENSE->STATUS & LESENSE_STATUS_SCANACTIVE); 
+
+      /* restore interrupts to channel/threshold */
+      LESENSE_IntDisable(LESENSE_IEN_SCANCOMPLETE);
+      LESENSE_IntClear(_LESENSE_IFC_MASK);
+      LESENSE_IntEnable(channelsUsedMask);
+      LESENSE_ScanFreqSet(0, scanFrequencyIdle);
+      LESENSE_ScanStart();
+    }
 
     printf("calibration done\n");
 
@@ -816,8 +849,17 @@ yt_callback_t scanCompleteTask = ^{
   TRANSFER_BUFFER_BANK ^= 0x01;
   NVIC_EnableIRQ(LESENSE_IRQn);
 
-  uint32_t localScanres = lastScanres[TRANSFER_BUFFER_BANK ^ 0x01];
+  uint32_t localScanres = 0;
 
+  /*  Read the latest scan result if "pause" has not been called.
+      If "pause" has been requested, ignore the latest scan results which will
+      emulate all the channels being released and trigger the appropriate
+      callbacks. 
+  */
+  if (lesenseState != STATE_ACTIVE_PAUSE)
+  {
+    localScanres = lastScanres[TRANSFER_BUFFER_BANK ^ 0x01];
+  }
 
   for(uint32_t lesenseChannel = 0; 
       lesenseChannel < NUM_LESENSE_CHANNELS; 
@@ -875,6 +917,9 @@ yt_callback_t scanCompleteTask = ^{
     } // end activeChannel != NUM_LESENSE_CHANNELS
   } // end for-loop
 
+  /*  If none of the channels are active, switch state from Active
+      to Idle and change the sampling frequency.
+  */
   if (!localScanres)
   {
     for(uint32_t lesenseChannel = 0; 
@@ -883,22 +928,33 @@ yt_callback_t scanCompleteTask = ^{
     {
       uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
-      NSAssert(!alreadyPressed[activeChannel], "buttons not released\n");
+      if (activeChannel != NUM_LESENSE_CHANNELS)
+      {
+        NSAssert(!alreadyPressed[activeChannel], "buttons not released\n");
+      }
     }
 
-    // restore interrupts to channel/threshold
     LESENSE_ScanStop();
 
-    /* Wait for current scan to finish */
-    while(LESENSE->STATUS & LESENSE_STATUS_SCANACTIVE); 
+    /* If pause was called during the active period, do not start sampling. */
+    if (lesenseState == STATE_ACTIVE_PAUSE)
+    {
+      lesenseState = STATE_PAUSE;      
+    }
+    else
+    {
+      lesenseState = STATE_IDLE;      
 
-    LESENSE_IntDisable(LESENSE_IEN_SCANCOMPLETE);
-    LESENSE_IntClear(_LESENSE_IFC_MASK);
-    LESENSE_IntEnable(channelsUsedMask);
-    LESENSE_ScanFreqSet(0, scanFrequencyIdle);
-    LESENSE_ScanStart();
+      /* Wait for current scan to finish */
+      while(LESENSE->STATUS & LESENSE_STATUS_SCANACTIVE); 
 
-    lesenseState = STATE_IDLE;
+      /* restore interrupts to channel/threshold. */
+      LESENSE_IntDisable(LESENSE_IEN_SCANCOMPLETE);
+      LESENSE_IntClear(_LESENSE_IFC_MASK);
+      LESENSE_IntEnable(channelsUsedMask);
+      LESENSE_ScanFreqSet(0, scanFrequencyIdle);
+      LESENSE_ScanStart();
+    }
   }
 
   NVIC_DisableIRQ(LESENSE_IRQn);
@@ -971,7 +1027,8 @@ void LESENSE_IRQHandler( void )
     lastEvent[TRANSFER_BUFFER_BANK] = ytPlatformGetTime();
 
     /*  Post the appropriate task to handle the sampled data. */
-    if (lesenseState == STATE_CALIBRATION)
+    if ((lesenseState == STATE_CALIBRATION) || 
+        (lesenseState == STATE_CALIBRATION_PAUSE))
     {
       if (calibrationTaskNotPosted)
       {
