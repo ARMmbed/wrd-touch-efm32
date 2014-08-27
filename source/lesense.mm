@@ -16,7 +16,7 @@ extern "C" {
 
 #import <stdlib.h>
 
-#if 1
+#if 0
 #import "stdio.h"
 #else
 #define printf(...) ;
