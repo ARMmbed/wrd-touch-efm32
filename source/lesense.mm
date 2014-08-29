@@ -308,7 +308,15 @@ static bool buttonWakeupTaskNotPosted = true;
     LESENSE_ScanFreqSet(0, scanFrequencyIdle);
     LESENSE_ScanStart();
 
-    lesenseState = STATE_CALIBRATION;
+    if (lesenseState == STATE_PAUSE)
+    {
+      lesenseState = STATE_CALIBRATION_PAUSE;
+    }
+    else
+    {
+      lesenseState = STATE_CALIBRATION;
+    }
+
     useCalibrationValues = useNewValues;
 
     if (callback)
@@ -349,7 +357,8 @@ static bool buttonWakeupTaskNotPosted = true;
     {
       lesenseState = STATE_ACTIVE_PAUSE;    
     }
-    else if (lesenseState == STATE_CALIBRATION)
+    else if ((lesenseState == STATE_CALIBRATION) || 
+             (lesenseState == STATE_CALIBRATION_PAUSE))
     {
       lesenseState = STATE_CALIBRATION_PAUSE;
     }
