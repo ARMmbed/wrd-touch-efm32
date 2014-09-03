@@ -11,10 +11,10 @@ set_target_properties(lesense PROPERTIES
 )
 
 target_link_libraries(lesense
-    objc2  # must always be first!
+    libobjc2  # must always be first!
     emlib
     yottos
-    yottos_platform
+    yottos-platform
     ytstatic
     yterror
 )
