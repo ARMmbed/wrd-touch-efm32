@@ -17,7 +17,7 @@
     "yottos-platform": "ARM-RD/yottos-platform",
     "emlib": "ARM-RD/emlib",
     "nsassert": "ARM-RD/nsassert",
-    "ytstatic": "ARM-RD/ytstatic >=0.0.2",
+    "ytstatic": "ARM-RD/ytstatic#>=0.0.2",
     "yterror": "ARM-RD/yterror"
   },
   "targetDependencies": {}
