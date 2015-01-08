@@ -11,14 +11,14 @@
     }
   ],
   "dependencies": {
-    "libobjc2": "ARM-RD/libobjc2",
-    "bootstrap": "ARM-RD/bootstrap",
-    "yottos": "ARM-RD/yottos",
-    "yottos-platform": "ARM-RD/yottos-platform",
-    "emlib": "ARM-RD/emlib",
-    "nsassert": "ARM-RD/nsassert",
-    "ytstatic": "ARM-RD/ytstatic#>=0.0.2",
-    "yterror": "ARM-RD/yterror"
+    "libobjc2": "ARMmbed/libobjc2",
+    "bootstrap": "ARMmbed/bootstrap",
+    "yottos": "ARMmbed/yottos",
+    "yottos-platform": "ARMmbed/yottos-platform",
+    "emlib": "ARMmbed/emlib",
+    "nsassert": "ARMmbed/nsassert",
+    "ytstatic": "ARMmbed/ytstatic#>=0.0.2",
+    "yterror": "ARMmbed/yterror"
   },
   "targetDependencies": {}
 }
