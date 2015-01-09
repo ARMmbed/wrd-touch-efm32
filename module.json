@@ -17,7 +17,7 @@
     "yottos-platform": "ARMmbed/yottos-platform",
     "emlib": "ARMmbed/emlib",
     "nsassert": "ARMmbed/nsassert",
-    "ytstatic": "ARMmbed/ytstatic#>=0.0.2",
+    "ytstatic": "ARMmbed/ytstatic#~0.0.2",
     "yterror": "ARMmbed/yterror"
   },
   "targetDependencies": {}
