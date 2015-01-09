@@ -10,7 +10,7 @@ extern "C" {
 
 #import "yottos/yottos.h"
 #import "yottos_platform/yottos_platform.h"
-#import "NSAssert/NSAssert.h"
+#import "Foundation/NSAssert.h"
 }
 
 
