@@ -1,6 +1,6 @@
 {
   "name": "lesense-efm32",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Low-energy module for the EFM32",
   "author": "Marcus Chang",
   "homepage": "https://github.com/ARMmbed/lesense-efm32",
