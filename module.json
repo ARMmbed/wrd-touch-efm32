@@ -11,14 +11,7 @@
     }
   ],
   "dependencies": {
-    "libobjc2": "ARMmbed/libobjc2",
-    "bootstrap": "ARMmbed/bootstrap",
-    "yottos": "ARMmbed/yottos",
-    "yottos-platform": "ARMmbed/yottos-platform",
-    "emlib": "ARMmbed/emlib",
-    "nsassert": "ARMmbed/nsassert",
-    "ytstatic": "ARMmbed/ytstatic#~0.0.2",
-    "yterror": "ARMmbed/yterror"
+    "mbed-hal-silabs": "~0.3.0"
   },
   "targetDependencies": {}
 }
