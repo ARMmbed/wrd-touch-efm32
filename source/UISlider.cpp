@@ -209,17 +209,17 @@ void UISlider::sliderReleaseTask()
 
 /*  Set callback functions.
 */
-void setCallOnPress(void (*_callOnPress)(void))
+void UISlider::setCallOnPress(void (*_callOnPress)(void))
 {
     callOnPress.attach(_callOnPress);
 }
 
-void setCallOnChange(void (*_callOnChange)(void))
+void UISlider::setCallOnChange(void (*_callOnChange)(void))
 {
     callOnChange.attach(_callOnChange);
 }
 
-void setCallOnRelease(void (*_callOnRelease)(void))
+void UISlider::setCallOnRelease(void (*_callOnRelease)(void))
 {
     callOnRelease.attach(_callOnRelease);
 }

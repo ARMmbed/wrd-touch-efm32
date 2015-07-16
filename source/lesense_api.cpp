@@ -338,6 +338,61 @@ void addChannel(params_t& params)
 
 
 
+void removeChannel(uint32_t lesenseChannel, FunctionPointer& callOnPress, FunctionPointer& callOnRelease)
+{
+    /* Sanity check. */
+    if (lesenseChannel < LESENSE_CHANNEL_TOTAL)
+    {
+        uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
+
+        /*  If lesenseChannel has been configured, remove callbacks (if any)
+            and decrement number of users. If no users are left on this lesense
+            channel, clean up data structures. If no users are left on any
+            channels, pause the lesense module.
+        */
+        if (activeChannel != LESENSE_CHANNEL_TOTAL)
+        {
+            if (callOnPress)
+            {
+                removeCallback(callOnPress, &onPress[activeChannel]);
+            }
+            if (callOnRelease)
+            {
+                removeCallback(callOnRelease, &onRelease[activeChannel]);
+            }
+
+            currentUsers[activeChannel]--;
+
+            if (currentUsers[activeChannel] == 0)
+            {
+                // clean up
+                cleanupCallback(&onPress[activeChannel]);
+                cleanupCallback(&onRelease[activeChannel]);
+
+                lesenseToActiveMap[lesenseChannel] = LESENSE_CHANNEL_TOTAL;
+            }
+
+            /* check if lesense can be turned off. */
+            uint32_t totalUsers = 0;
+            for (uint16_t allChannel = 0;
+                 allChannel < LESENSE_CHANNEL_IN_USE;
+                 allChannel++)
+            {
+                totalUsers += currentUsers[allChannel];
+            }
+
+            /* pause module to save power. */
+            if (totalUsers == 0)
+            {
+                pause();
+            }
+        }
+    }
+}
+
+
+/*  Get status.
+*/
 
 uint16_t getValue(uint32_t lesenseChannel)
 {
@@ -591,6 +646,7 @@ static bool removeCallback(FunctionPointer& oldCallback, struct CallbackNode** n
 {
     while(*node)
     {
+#warning FunctionPointer comparison not implemented yet
         if ((*node)->callback == oldCallback)
         {
             void* trashNode = *node;

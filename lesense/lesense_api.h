@@ -42,6 +42,8 @@ namespace lesense {
 
     void addChannel(params_t& parameters);
 
+    void removeChannel(uint32_t lesenseChannel, FunctionPointer& callOnPress, FunctionPointer& callOnRelease);
+
     uint16_t getValue(uint32_t channel);
     uint16_t getMinValue(uint32_t channel);
     uint16_t getMaxValue(uint32_t channel);
