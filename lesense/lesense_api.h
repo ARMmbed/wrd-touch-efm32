@@ -21,17 +21,6 @@
 #include "mbed.h"
 
 
-/* LESENSE number of channels possible to use, should be 16 */
-#define NUM_LESENSE_CHANNELS 16
-
-/* LESENSE number of channels actually in use */
-#define NUM_ACTIVE_CHANNELS 5
-
-/* GPIO Port for analog comparators */
-#define LESENSE_CH_PORT gpioPortC
-
-#define LESENSE_IFS_ALL_CHANNELS 0x0000FFFF
-
 extern FunctionPointer calibrateDoneCallback;
 
 namespace lesense {
@@ -50,8 +39,6 @@ namespace lesense {
         uint32_t sensitivity;
         bool updates;
     } params_t;
-
-    void lesenseInit();
 
     void addChannel(params_t& parameters);
 
@@ -89,12 +76,6 @@ namespace lesense {
 
         internalCalibrate(forceCalibration, useNewValues);
     }
-
-    /*  Private
-    */
-    bool addCallback(FunctionPointer& newCallback, bool updates, struct CallbackNode** nodes);
-    bool removeCallback(FunctionPointer& oldCallback, struct CallbackNode** node);
-    void cleanupCallback(struct CallbackNode** node);
 }
 
 #endif // __LESENSE_API_H__

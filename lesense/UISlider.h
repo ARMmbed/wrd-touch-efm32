@@ -34,9 +34,13 @@ public:
             sliderIsPressed(false),
             lastEvent(0)
     {
+        /*  Setup callback functions to calculate slider position.
+        */
         FunctionPointer onPress(this, &UISlider::sliderPressTask);
         FunctionPointer onRelease(this, &UISlider::sliderReleaseTask);
 
+        /*  Add channels defined by channel map.
+        */
         lesense::params_t params;
 
         params.onPress = onPress;
@@ -63,6 +67,30 @@ public:
     void setIdleFrequency(uint32_t freqHz);
     void setActiveFrequency(uint32_t freqHz);
 
+    /*  Register callback functions
+    */
+    template <typename T>
+    void setCallOnPress(T* object, void (T::*member)(void))
+    {
+        callOnPress.attach(object, member);
+    }
+
+    template <typename T>
+    void setCallOnChange(T* object, void (T::*member)(void))
+    {
+        callOnChange.attach(object, member);
+    }
+
+    template <typename T>
+    void setCallOnRelease(T* object, void (T::*member)(void))
+    {
+        callOnRelease.attach(object, member);
+    }
+
+    void setCallOnPress(void (*callOnPress)(void));
+    void setCallOnChange(void (*callOnChange)(void));
+    void setCallOnRelease(void (*callOnRelease)(void));
+
     void setCallOnPress(FunctionPointer& callOnPress);
     void setCallOnChange(FunctionPointer& callOnChange);
     void setCallOnRelease(FunctionPointer& callOnRelease);
@@ -78,7 +106,7 @@ private:
     void sliderPressTask();
     void sliderReleaseTask();
 
-    LESENSEName channels[16];
+    LESENSEName channels[SLIDER_MAX];
 
     uint32_t channelsInUse;
 
@@ -94,30 +122,6 @@ private:
     FunctionPointer callOnRelease;
 };
 
-
-#if 0
-@interface YTSlider : NSObject
-{
-  @protected
-  NSArray* buttons;
-
-  @private
-}
-
-- (id) initWithButtons:(NSArray*)buttons
-           callOnPress:(yt_callback_t)onPress
-          callOnChange:(yt_callback_t)onChange
-         callOnRelease:(yt_callback_t)onRelease;
-
-- (id) initWithChannels:(uint32_t[])channels
-       numberOfChannels:(uint32_t)numberOfChannels
-            callOnPress:(yt_callback_t)onPress
-           callOnChange:(yt_callback_t)onChange
-          callOnRelease:(yt_callback_t)onRelease
-            sensitivity:(uint32_t)sensitivity;
-
-@end
-#endif
 
 #endif // __UISLIDER_H__
 

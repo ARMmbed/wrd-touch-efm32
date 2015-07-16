@@ -162,9 +162,9 @@ void UISlider::sliderPressTask()
     }
 }
 
-    /*  This block is executed when one of the analog buttons crosses the
-        deadzone threshold and returns to its original state.
-    */
+/*  This block is executed when one of the analog channels crosses the
+    deadzone threshold and returns to its original state.
+*/
 void UISlider::sliderReleaseTask()
 {
     /*  Get the timestamp for this event.
@@ -207,22 +207,41 @@ void UISlider::sliderReleaseTask()
 }
 
 
-
-void UISlider::setCallOnPress(FunctionPointer& newCallOnPress)
+/*  Set callback functions.
+*/
+void setCallOnPress(void (*_callOnPress)(void))
 {
-    callOnPress = newCallOnPress;
+    callOnPress.attach(_callOnPress);
 }
 
-void UISlider::setCallOnChange(FunctionPointer& newCallOnChange)
+void setCallOnChange(void (*_callOnChange)(void))
 {
-    callOnChange = newCallOnChange;
+    callOnChange.attach(_callOnChange);
 }
 
-void UISlider::setCallOnRelease(FunctionPointer& newCallOnRelease)
+void setCallOnRelease(void (*_callOnRelease)(void))
 {
-    callOnRelease = newCallOnRelease;
+    callOnRelease.attach(_callOnRelease);
 }
 
+void UISlider::setCallOnPress(FunctionPointer& _callOnPress)
+{
+    callOnPress = _callOnPress;
+}
+
+void UISlider::setCallOnChange(FunctionPointer& _callOnChange)
+{
+    callOnChange = _callOnChange;
+}
+
+void UISlider::setCallOnRelease(FunctionPointer& _callOnRelease)
+{
+    callOnRelease = _callOnRelease;
+}
+
+
+/*  Get slider status.
+*/
 bool UISlider::isPressed()
 {
     return sliderIsPressed;
@@ -243,6 +262,9 @@ int32_t UISlider::getAcceleration()
     return lastAcceleration;
 }
 
+
+/*  Set slider settings.
+*/
 void UISlider::setIdleFrequency(uint32_t freqHz)
 {
     lesense::setIdleFrequency(freqHz);
@@ -267,79 +289,3 @@ void UISlider::resume()
 {
     lesense::resume();
 }
-
-
-
-
-#if 0
-@implementation YTSlider
-
-- (id) initWithButtons:(NSArray*)newButtons
-           callOnPress:(yt_callback_t)newCallOnPress
-          callOnChange:(yt_callback_t)newCallOnChange
-         callOnRelease:(yt_callback_t)newCallOnRelease
-{
-  self = [super init];
-
-  if (self)
-  {
-    buttons = newButtons;
-    callOnPress = newCallOnPress;
-    callOnChange = newCallOnChange;
-    callOnRelease = newCallOnRelease;
-
-
-
-    __weak typeof(self) weakSelf = self;
-
-
-
-    /* register callback functions with slider buttons. */
-    for (YTButtonAnalog* button in buttons)
-    {
-      [button registerCallOnPress:sliderPressTask multipleUpdates:YES];
-      [button registerCallOnRelease:sliderReleaseTask multipleUpdates:YES];
-    }
-  }
-
-  return self;
-}
-
-- (id) initWithChannels:(uint32_t[])channels
-       numberOfChannels:(uint32_t)newChannelsInUse
-            callOnPress:(yt_callback_t)newCallOnPress
-           callOnChange:(yt_callback_t)newCallOnChange
-          callOnRelease:(yt_callback_t)newCallOnRelease
-            sensitivity:(uint32_t)newSensitivity
-{
-  NSMutableArray* buttonsArray = [[NSMutableArray alloc] init];
-
-  /*  Instantiate a new button for each channel in the slider. */
-  for (uint32_t channelIndex = 0; channelIndex < newChannelsInUse; channelIndex++)
-  {
-    YTButtonAnalog* button = [[YTButtonAnalog alloc] initWithChannel:channels[channelIndex]
-                                                         callOnPress:nil
-                                                       callOnRelease:nil
-                                                         sensitivity:newSensitivity
-                                                     multipleUpdates:NO];
-    [buttonsArray addObject:button];
-  }
-
-
-  self = [self initWithButtons:buttonsArray
-                   callOnPress:newCallOnPress
-                  callOnChange:newCallOnChange
-                 callOnRelease:newCallOnRelease];
-
-  return self;
-}
-
-
-- (void)dealloc
-{
-  printf("YTSlider dealloc\n");
-}
-#endif
-
-
-

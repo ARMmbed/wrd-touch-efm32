@@ -31,23 +31,26 @@
 
 namespace lesense {
 
-uint16_t lesenseToActiveMap[NUM_LESENSE_CHANNELS];
+uint16_t lesenseToActiveMap[LESENSE_CHANNEL_TOTAL];
 
 /*  Setup and State Group
 */
 typedef enum {
-  STATE_PAUSE,
-  STATE_IDLE,
-  STATE_CALIBRATION,
-  STATE_CALIBRATION_PAUSE,
-  STATE_ACTIVE,
-  STATE_ACTIVE_PAUSE
+    STATE_OFF,
+    STATE_PAUSE,
+    STATE_IDLE,
+    STATE_CALIBRATION,
+    STATE_CALIBRATION_PAUSE,
+    STATE_ACTIVE,
+    STATE_ACTIVE_PAUSE
 } state_t;
 
-static state_t lesenseState = STATE_PAUSE;
+static state_t lesenseState = STATE_OFF;
 
-static uint8_t  channelSensitivityPercent[NUM_ACTIVE_CHANNELS]  = {0};
-static bool     alreadyPressed[NUM_ACTIVE_CHANNELS]             = {0};
+static void init();
+
+static uint8_t  channelSensitivityPercent[LESENSE_CHANNEL_IN_USE]  = {0};
+static bool     alreadyPressed[LESENSE_CHANNEL_IN_USE]             = {0};
 
 static uint32_t scanFrequencyIdle   = LESENSE_SCAN_FREQUENCY_LOW;
 static uint32_t scanFrequencyActive = LESENSE_SCAN_FREQUENCY_HIGH;
@@ -57,9 +60,14 @@ static uint32_t scanFrequencyActive = LESENSE_SCAN_FREQUENCY_HIGH;
     Functions and datastructures for maintaining a linked list of callbacks
     for each channel.
 */
-static struct   CallbackNode* onPress[NUM_ACTIVE_CHANNELS]      = {0};
-static struct   CallbackNode* onRelease[NUM_ACTIVE_CHANNELS]    = {0};
-static uint32_t currentUsers[NUM_ACTIVE_CHANNELS]               = {0};
+static struct   CallbackNode* onPress[LESENSE_CHANNEL_IN_USE]      = {0};
+static struct   CallbackNode* onRelease[LESENSE_CHANNEL_IN_USE]    = {0};
+static uint32_t currentUsers[LESENSE_CHANNEL_IN_USE]               = {0};
+
+static bool addCallback(FunctionPointer& newCallback, bool updates, struct CallbackNode** nodes);
+static bool removeCallback(FunctionPointer& oldCallback, struct CallbackNode** node);
+static void cleanupCallback(struct CallbackNode** node);
+
 
 /*  End Linked List Group */
 
@@ -68,10 +76,10 @@ static uint32_t currentUsers[NUM_ACTIVE_CHANNELS]               = {0};
 */
 static bool     useCalibrationValues = true;
 static uint8_t  calibrationValueIndex = 0;
-static uint16_t calibrationValue[NUM_ACTIVE_CHANNELS][NUMBER_OF_CALIBRATION_VALUES];
-static uint16_t channelMaxValue[NUM_ACTIVE_CHANNELS];
-static uint16_t channelMinValue[NUM_ACTIVE_CHANNELS];
-static uint16_t channelCalValue[NUM_ACTIVE_CHANNELS];
+static uint16_t calibrationValue[LESENSE_CHANNEL_IN_USE][NUMBER_OF_CALIBRATION_VALUES];
+static uint16_t channelMaxValue[LESENSE_CHANNEL_IN_USE];
+static uint16_t channelMinValue[LESENSE_CHANNEL_IN_USE];
+static uint16_t channelCalValue[LESENSE_CHANNEL_IN_USE];
 static uint16_t GetMedianValue(uint16_t* A, uint16_t N);
 FunctionPointer calibrateDoneCallback;
 /*  End Calibration Group */
@@ -79,12 +87,12 @@ FunctionPointer calibrateDoneCallback;
 /*  IRQ Group
     Datastructures for transferring data between interrupt handler and tasks.
 */
-static uint16_t channelsUsedMask                        = 0;
-static uint16_t numChannelsUsed                         = 0;
-static uint32_t lastEvent[2]                            = {0};
-static uint32_t lastScanres[2]                          = {0};
-static uint16_t transferBuffer[2][NUM_ACTIVE_CHANNELS]  = {0};
-static uint8_t  TRANSFER_BUFFER_BANK                    = 0;
+static uint16_t channelsUsedMask                            = 0;
+static uint16_t numChannelsUsed                             = 0;
+static uint32_t lastEvent[2]                                = {0};
+static uint32_t lastScanres[2]                              = {0};
+static uint16_t transferBuffer[2][LESENSE_CHANNEL_IN_USE]   = {0};
+static uint8_t  TRANSFER_BUFFER_BANK                        = 0;
 
 static bool calibrationTaskNotPosted    = true;
 static bool scanCompleteTaskNotPosted   = true;
@@ -94,144 +102,149 @@ static bool buttonWakeupTaskNotPosted   = true;
 
 
 /*  Private function for initializing the lesense module. */
-void lesenseInit()
+static void init()
 {
-    printf("lesenseInit\r\n");
-
-    for(uint16_t activeChannel = 0;
-        activeChannel < NUM_ACTIVE_CHANNELS;
-        activeChannel++)
+    if (lesenseState == STATE_OFF)
     {
-        /* Init min and max values for each active channel */
-        channelMaxValue[activeChannel] = 0;
-        channelCalValue[activeChannel] = 0;
-        channelMinValue[activeChannel] = 0xffff;
-        channelSensitivityPercent[activeChannel] = 100;
-    }
+        printf("lesenseInit\r\n");
 
-    /*  The lesenseChannel is always less than NUM_LESENSE_CHANNELS.
-        Use NUM_LESENSE_CHANNELS to indicate channel is not in use.
-    */
-    for (uint32_t lesenseChannel = 0;
-         lesenseChannel < NUM_LESENSE_CHANNELS;
-         lesenseChannel++)
-    {
-        lesenseToActiveMap[lesenseChannel] = NUM_LESENSE_CHANNELS;
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
-    ///////////////////////////////////////////////////////////////////////////////
-
-    /* Setup CMU. */
-    /* ACMP */
-    CMU_ClockEnable(cmuClock_ACMP0, true);
-    CMU_ClockEnable(cmuClock_ACMP1, true);
-
-    /* GPIO */
-    CMU_ClockEnable(cmuClock_GPIO, true);
-
-    /* Low energy peripherals
-    *   LESENSE
-    *   LFXO clock must be enabled prior to enabling
-    *   clock for the low energy peripherals */
-    CMU_ClockSelectSet(cmuClock_LFA, cmuSelect_LFXO);
-    CMU_ClockEnable(cmuClock_CORELE, true);
-    CMU_ClockEnable(cmuClock_LESENSE, true);
-
-    /* Disable clock source for LFB clock */
-    CMU_ClockSelectSet(cmuClock_LFB, cmuSelect_Disabled);
-
-    ///////////////////////////////////////////////////////////////////////////////
-    ///////////////////////////////////////////////////////////////////////////////
-
-    /* Setup ACMP. */
-    /* Configuration structure for ACMP */
-    /* See application note document for description of the different settings. */
-    static const ACMP_CapsenseInit_TypeDef acmpInit =
-    {
-        .fullBias                 = true,            //Configured according to application note
-        .halfBias                 = true,            //Configured according to application note
-        .biasProg                 = 0x5,             //Configured according to application note
-        .warmTime                 = acmpWarmTime512, //LESENSE uses a fixed warmup time
-        .hysteresisLevel          = acmpHysteresisLevel5, //Configured according to application note
-        .resistor                 = acmpResistor0,   //Configured according to application note
-        .lowPowerReferenceEnabled = false,           //LP-reference can introduce glitches with captouch
-        .vddLevel                 = 0x30,            //Configured according to application note
-        .enable                   = false            //LESENSE enables the ACMP
-    };
-
-    /* Initialize ACMP in capsense mode*/
-    ACMP_CapsenseInit(ACMP0, &acmpInit);
-    ACMP_CapsenseInit(ACMP1, &acmpInit);
-
-    ///////////////////////////////////////////////////////////////////////////////
-    ///////////////////////////////////////////////////////////////////////////////
-
-    /* Setup LESENSE. */
-    /* LESENSE configuration structure */
-    static const LESENSE_Init_TypeDef initLesense =
-    {
-        .coreCtrl         =
+        for(uint16_t activeChannel = 0;
+            activeChannel < LESENSE_CHANNEL_IN_USE;
+            activeChannel++)
         {
-            .scanStart    = lesenseScanStartPeriodic,
-            .prsSel       = lesensePRSCh0,
-            .scanConfSel  = lesenseScanConfDirMap,
-            .invACMP0     = false,
-            .invACMP1     = false,
-            .dualSample   = false,
-            .storeScanRes = false,
-            .bufOverWr    = true,
-            .bufTrigLevel = lesenseBufTrigHalf,
-            .wakeupOnDMA  = lesenseDMAWakeUpDisable,
-            .biasMode     = lesenseBiasModeDutyCycle,
-            .debugRun     = false
-        },
-
-        .timeCtrl         =
-        {
-            .startDelay   = 0x0
-        },
-
-        .perCtrl            =
-        {
-            .dacCh0Data     = lesenseDACIfData,
-            .dacCh0ConvMode = lesenseDACConvModeDisable,
-            .dacCh0OutMode  = lesenseDACOutModeDisable,
-            .dacCh1Data     = lesenseDACIfData,
-            .dacCh1ConvMode = lesenseDACConvModeDisable,
-            .dacCh1OutMode  = lesenseDACOutModeDisable,
-            .dacPresc       = 0,
-            .dacRef         = lesenseDACRefBandGap,
-            .acmp0Mode      = lesenseACMPModeMux,   // only acmp mux controlled by lesense
-            .acmp1Mode      = lesenseACMPModeMux,   // only acmp mux controlled by lesense
-            .warmupMode     = lesenseWarmupModeNormal
-        },
-
-        .decCtrl       =
-        {
-            .decInput  = lesenseDecInputSensorSt,
-            .initState = 0,
-            .chkState  = false,
-            .intMap    = false,
-            .hystPRS0  = false,
-            .hystPRS1  = false,
-            .hystPRS2  = false,
-            .hystIRQ   = false,
-            .prsCount  = false,
-            .prsChSel0 = lesensePRSCh0,
-            .prsChSel1 = lesensePRSCh1,
-            .prsChSel2 = lesensePRSCh2,
-            .prsChSel3 = lesensePRSCh3
+            /* Init min and max values for each active channel */
+            channelMaxValue[activeChannel] = 0;
+            channelCalValue[activeChannel] = 0;
+            channelMinValue[activeChannel] = 0xffff;
+            channelSensitivityPercent[activeChannel] = 100;
         }
-    };
 
-    /* Initialize LESENSE interface _with_ RESET. */
-    LESENSE_Init(&initLesense, true);
+        /*  The lesenseChannel is always less than LESENSE_CHANNEL_TOTAL.
+            Use LESENSE_CHANNEL_TOTAL to indicate channel is not in use.
+        */
+        for (uint32_t lesenseChannel = 0;
+             lesenseChannel < LESENSE_CHANNEL_TOTAL;
+             lesenseChannel++)
+        {
+            lesenseToActiveMap[lesenseChannel] = LESENSE_CHANNEL_TOTAL;
+        }
 
-    /* Set clock divisor for LF clock. */
-    LESENSE_ClkDivSet(lesenseClkLF, lesenseClkDiv_1);
+        ///////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////
 
-    printf("%s done\r\n", __FUNCTION__);
+        /* Setup CMU. */
+        /* ACMP */
+        CMU_ClockEnable(cmuClock_ACMP0, true);
+        CMU_ClockEnable(cmuClock_ACMP1, true);
+
+        /* GPIO */
+        CMU_ClockEnable(cmuClock_GPIO, true);
+
+        /* Low energy peripherals
+        *   LESENSE
+        *   LFXO clock must be enabled prior to enabling
+        *   clock for the low energy peripherals */
+        CMU_ClockSelectSet(cmuClock_LFA, cmuSelect_LFXO);
+        CMU_ClockEnable(cmuClock_CORELE, true);
+        CMU_ClockEnable(cmuClock_LESENSE, true);
+
+        /* Disable clock source for LFB clock */
+        CMU_ClockSelectSet(cmuClock_LFB, cmuSelect_Disabled);
+
+        ///////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////
+
+        /* Setup ACMP. */
+        /* Configuration structure for ACMP */
+        /* See application note document for description of the different settings. */
+        static const ACMP_CapsenseInit_TypeDef acmpInit =
+        {
+            .fullBias                 = true,            //Configured according to application note
+            .halfBias                 = true,            //Configured according to application note
+            .biasProg                 = 0x5,             //Configured according to application note
+            .warmTime                 = acmpWarmTime512, //LESENSE uses a fixed warmup time
+            .hysteresisLevel          = acmpHysteresisLevel5, //Configured according to application note
+            .resistor                 = acmpResistor0,   //Configured according to application note
+            .lowPowerReferenceEnabled = false,           //LP-reference can introduce glitches with captouch
+            .vddLevel                 = 0x30,            //Configured according to application note
+            .enable                   = false            //LESENSE enables the ACMP
+        };
+
+        /* Initialize ACMP in capsense mode*/
+        ACMP_CapsenseInit(ACMP0, &acmpInit);
+        ACMP_CapsenseInit(ACMP1, &acmpInit);
+
+        ///////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////
+
+        /* Setup LESENSE. */
+        /* LESENSE configuration structure */
+        static const LESENSE_Init_TypeDef initLesense =
+        {
+            .coreCtrl         =
+            {
+                .scanStart    = lesenseScanStartPeriodic,
+                .prsSel       = lesensePRSCh0,
+                .scanConfSel  = lesenseScanConfDirMap,
+                .invACMP0     = false,
+                .invACMP1     = false,
+                .dualSample   = false,
+                .storeScanRes = false,
+                .bufOverWr    = true,
+                .bufTrigLevel = lesenseBufTrigHalf,
+                .wakeupOnDMA  = lesenseDMAWakeUpDisable,
+                .biasMode     = lesenseBiasModeDutyCycle,
+                .debugRun     = false
+            },
+
+            .timeCtrl         =
+            {
+                .startDelay   = 0x0
+            },
+
+            .perCtrl            =
+            {
+                .dacCh0Data     = lesenseDACIfData,
+                .dacCh0ConvMode = lesenseDACConvModeDisable,
+                .dacCh0OutMode  = lesenseDACOutModeDisable,
+                .dacCh1Data     = lesenseDACIfData,
+                .dacCh1ConvMode = lesenseDACConvModeDisable,
+                .dacCh1OutMode  = lesenseDACOutModeDisable,
+                .dacPresc       = 0,
+                .dacRef         = lesenseDACRefBandGap,
+                .acmp0Mode      = lesenseACMPModeMux,   // only acmp mux controlled by lesense
+                .acmp1Mode      = lesenseACMPModeMux,   // only acmp mux controlled by lesense
+                .warmupMode     = lesenseWarmupModeNormal
+            },
+
+            .decCtrl       =
+            {
+                .decInput  = lesenseDecInputSensorSt,
+                .initState = 0,
+                .chkState  = false,
+                .intMap    = false,
+                .hystPRS0  = false,
+                .hystPRS1  = false,
+                .hystPRS2  = false,
+                .hystIRQ   = false,
+                .prsCount  = false,
+                .prsChSel0 = lesensePRSCh0,
+                .prsChSel1 = lesensePRSCh1,
+                .prsChSel2 = lesensePRSCh2,
+                .prsChSel3 = lesensePRSCh3
+            }
+        };
+
+        /* Initialize LESENSE interface _with_ RESET. */
+        LESENSE_Init(&initLesense, true);
+
+        /* Set clock divisor for LF clock. */
+        LESENSE_ClkDivSet(lesenseClkLF, lesenseClkDiv_1);
+
+        lesenseState = STATE_PAUSE;
+
+        printf("%s done\r\n", __FUNCTION__);
+    }
 }
 
 
@@ -242,21 +255,27 @@ void lesenseInit()
 */
 void addChannel(params_t& params)
 {
+    //  Make sure module has been initialized
+    if (lesenseState == STATE_OFF)
+    {
+        init(); // init changes state to STATE_IDLE
+    }
+
     uint16_t activeChannel = lesenseToActiveMap[params.channel];
 
-    /*  Sanity check. activeChannel == NUM_LESENSE_CHANNELS means the
+    /*  Sanity check. activeChannel == LESENSE_CHANNEL_TOTAL means the
         channel has not been configured for use and it can only be
         configured if there are available active channel slots.
     */
-    MBED_ASSERT((params.channel >= NUM_LESENSE_CHANNELS) ||
-        (numChannelsUsed >= NUM_ACTIVE_CHANNELS && activeChannel == NUM_LESENSE_CHANNELS));
+    MBED_ASSERT((params.channel >= LESENSE_CHANNEL_TOTAL) ||
+        (numChannelsUsed >= LESENSE_CHANNEL_IN_USE && activeChannel == LESENSE_CHANNEL_TOTAL));
 
     /*  The same channel can be added multiple times. This is useful if multiple
         modules want to be notified about user interaction.
 
         Callbacks are stored as linked lists. See the gpio-efm32 module for details.
     */
-    if (activeChannel == NUM_LESENSE_CHANNELS)
+    if (activeChannel == LESENSE_CHANNEL_TOTAL)
     {
         /*  Keep track of channels in use, users per channel, and maintain mapping
         between active channelse and lesense channelse. The usage mask is for
@@ -352,11 +371,6 @@ bool channelIsActive(uint32_t lesenseChannel)
 
   return alreadyPressed[activeChannel];
 }
-
-
-
-
-
 
 
 
@@ -552,7 +566,7 @@ void resume()
 /*  addCallback, removeCallback, and cleanupCallback maintain the linkedlists
     with call back functions.
 */
-bool addCallback(FunctionPointer& newCallback, bool updates, struct CallbackNode** node)
+static bool addCallback(FunctionPointer& newCallback, bool updates, struct CallbackNode** node)
 {
     /* insert new node at the end of the linked list */
     while(*node)
@@ -573,7 +587,7 @@ bool addCallback(FunctionPointer& newCallback, bool updates, struct CallbackNode
     return true;
 }
 
-bool removeCallback(FunctionPointer& oldCallback, struct CallbackNode** node)
+static bool removeCallback(FunctionPointer& oldCallback, struct CallbackNode** node)
 {
     while(*node)
     {
@@ -592,7 +606,7 @@ bool removeCallback(FunctionPointer& oldCallback, struct CallbackNode** node)
     return false;
 }
 
-void cleanupCallback(struct CallbackNode** node)
+static void cleanupCallback(struct CallbackNode** node)
 {
     while(*node)
     {
@@ -660,7 +674,7 @@ static void calibrationTask()
 
     /* Iterate through all possible channels, but only store the active ones. */
     for(uint32_t lesenseChannel = 0;
-        lesenseChannel < NUM_LESENSE_CHANNELS;
+        lesenseChannel < LESENSE_CHANNEL_TOTAL;
         lesenseChannel++)
     {
         if((channelsUsedMask >> lesenseChannel) & 0x01)
@@ -678,7 +692,7 @@ static void calibrationTask()
     {
         /* Calculate max/min-value for each channel and set threshold */
         for(uint32_t lesenseChannel = 0;
-            lesenseChannel < NUM_LESENSE_CHANNELS;
+            lesenseChannel < LESENSE_CHANNEL_TOTAL;
             lesenseChannel++)
         {
             if((channelsUsedMask >> lesenseChannel) & 0x1)
@@ -734,8 +748,6 @@ static void calibrationTask()
         }
 
         printf("calibration done\n");
-
-resume();
 
         if (calibrateDoneCallback)
         {
@@ -800,12 +812,12 @@ static void scanCompleteTask()
     }
 
     for(uint32_t lesenseChannel = 0;
-        lesenseChannel < NUM_LESENSE_CHANNELS;
+        lesenseChannel < LESENSE_CHANNEL_TOTAL;
         lesenseChannel++)
     {
         uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
-        if (activeChannel != NUM_LESENSE_CHANNELS)
+        if (activeChannel != LESENSE_CHANNEL_TOTAL)
         {
             // threshold reached for this channel, i.e., button was pressed
             if (((localScanres & channelsUsedMask) >> lesenseChannel) & 0x01)
@@ -856,7 +868,7 @@ static void scanCompleteTask()
                     }
                 }
             } // end is-button-pressed-or-not
-        } // end activeChannel != NUM_LESENSE_CHANNELS
+        } // end activeChannel != LESENSE_CHANNEL_TOTAL
     } // end for-loop
 
     /*  If none of the channels are active, switch state from Active
@@ -865,12 +877,12 @@ static void scanCompleteTask()
     if (!localScanres)
     {
         for (uint32_t lesenseChannel = 0;
-             lesenseChannel < NUM_LESENSE_CHANNELS;
+             lesenseChannel < LESENSE_CHANNEL_TOTAL;
              lesenseChannel++)
         {
             uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
-            if (activeChannel != NUM_LESENSE_CHANNELS)
+            if (activeChannel != LESENSE_CHANNEL_TOTAL)
             {
                 MBED_ASSERT(!alreadyPressed[activeChannel]);
             }
@@ -940,7 +952,7 @@ void LESENSE_IRQHandler(void)
         }
         else
         {
-            bufferIndex = NUM_LESENSE_CHANNELS + bufferIndex - numChannelsUsed;
+            bufferIndex = LESENSE_CHANNEL_TOTAL + bufferIndex - numChannelsUsed;
         }
 
         /*  Read data from peripheral buffer into transfer buffer for later
@@ -948,7 +960,7 @@ void LESENSE_IRQHandler(void)
             This value can be used for calculating a normalised pressure.
         */
         for (uint32_t lesenseChannel = 0;
-             lesenseChannel < NUM_LESENSE_CHANNELS;
+             lesenseChannel < LESENSE_CHANNEL_TOTAL;
              lesenseChannel++)
         {
             if((channelsUsedMask >> lesenseChannel) & 0x01)
