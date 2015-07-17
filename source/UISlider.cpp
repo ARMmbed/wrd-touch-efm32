@@ -16,9 +16,12 @@
 
 #include "lesense/UISlider.h"
 
+#if 0
 #include "swo/swo.h"
-
-#define printf swoprintf
+#define printf(...) { swoprintf(__VA_ARGS__); }
+#else
+#define printf(...)
+#endif
 
 /*  This function is executed when one of the analog channels crosses the
     deadzone threshold.

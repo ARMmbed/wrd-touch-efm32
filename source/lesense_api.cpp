@@ -25,9 +25,13 @@
 
 #include "LESENSE_config.h"
 
-#include "swo/swo.h"
 
-#define printf swoprintf
+#if 0
+#include "swo/swo.h"
+#define printf(...) { swoprintf(__VA_ARGS__); }
+#else
+#define printf(...)
+#endif
 
 namespace lesense {
 
