@@ -267,12 +267,9 @@ void addChannel(params_t& params)
 
     uint16_t activeChannel = lesenseToActiveMap[params.channel];
 
-    /*  Sanity check. activeChannel == LESENSE_CHANNEL_TOTAL means the
-        channel has not been configured for use and it can only be
-        configured if there are available active channel slots.
+    /*  Sanity check.
     */
-    MBED_ASSERT((params.channel >= LESENSE_CHANNEL_TOTAL) ||
-        (numChannelsUsed >= LESENSE_CHANNEL_IN_USE && activeChannel == LESENSE_CHANNEL_TOTAL));
+    MBED_ASSERT(params.channel < LESENSE_CHANNEL_TOTAL);
 
     /*  The same channel can be added multiple times. This is useful if multiple
         modules want to be notified about user interaction.
