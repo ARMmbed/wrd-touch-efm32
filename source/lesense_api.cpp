@@ -110,7 +110,7 @@ static void init()
 {
     if (lesenseState == STATE_OFF)
     {
-        printf("lesenseInit\r\n");
+        printf("lesense: init\r\n");
 
         for(uint16_t activeChannel = 0;
             activeChannel < LESENSE_CHANNEL_IN_USE;
@@ -246,8 +246,6 @@ static void init()
         LESENSE_ClkDivSet(lesenseClkLF, lesenseClkDiv_1);
 
         lesenseState = STATE_PAUSE;
-
-        printf("%s done\r\n", __FUNCTION__);
     }
 }
 
@@ -539,12 +537,12 @@ void internalCalibrate(bool forceCalibration, bool useNewValues)
 
         useCalibrationValues = useNewValues;
 
-        printf("calibration\n");
+        printf("lesense: calibration\n");
     }
     else if ((lesenseState == STATE_CALIBRATION) ||
              (lesenseState == STATE_CALIBRATION_PAUSE))
     {
-        printf("calibration in progress\n");
+        printf("lesense: calibration in progress\n");
 
         // retake measurements
         calibrationValueIndex  = 0;
@@ -774,7 +772,7 @@ static void calibrationTask()
                                                 (uint32_t)channelSensitivityPercent[activeChannel]) / 100;
                     LESENSE_ChannelThresSet(lesenseChannel, 0x0, channelThreshold);
 
-                    printf("%d %d\n", (int) lesenseChannel, (int) channelThreshold);
+                    printf("lesense: %d %d\n", (int) lesenseChannel, (int) channelThreshold);
                 }
             }
         }
@@ -804,7 +802,7 @@ static void calibrationTask()
             LESENSE_ScanStart();
         }
 
-        printf("calibration done\n");
+        printf("lesense: calibration done\n");
 
         if (calibrateDoneCallback)
         {
@@ -814,7 +812,7 @@ static void calibrationTask()
     }
     else
     {
-        printf("calibrating\n");
+        printf("lesense: calibrating\n");
     }
 
     NVIC_DisableIRQ(LESENSE_IRQn);
@@ -828,7 +826,7 @@ static uint32_t oldCount = 0;
 static void buttonWakeupTask()
 {
     uint32_t newCount = RTC->CNT;
-    printf("%s %d\r\n", __FUNCTION__, (int)(newCount - oldCount));
+    printf("lesense: %s %d\r\n", __FUNCTION__, (int)(newCount - oldCount));
     oldCount = newCount;
 
     /* Wait for current scan to finish */
@@ -849,7 +847,7 @@ static void scanCompleteTask()
 {
     // debug timing measurement
     uint32_t newCount = RTC->CNT;
-    printf("%s %d\r\n", __FUNCTION__, (int)(newCount - oldCount));
+    printf("lesense: %s %d\r\n", __FUNCTION__, (int)(newCount - oldCount));
     oldCount = newCount;
 
     NVIC_DisableIRQ(LESENSE_IRQn);
@@ -979,8 +977,6 @@ using namespace lesense;
 
 void LESENSE_IRQHandler(void)
 {
-    printf(".");
-
     /* Get pending and enabled interrupt flags */
     uint32_t interrupt_flags = LESENSE_IntGetEnabled();
 
