@@ -25,8 +25,7 @@
 
 #include "LESENSE_config.h"
 
-
-#if 0
+#if 1
 #include "swo/swo.h"
 #define printf(...) { swoprintf(__VA_ARGS__); }
 #else
@@ -269,10 +268,7 @@ void addChannel(params_t& params)
     */
     MBED_ASSERT(params.channel < LESENSE_CHANNEL_TOTAL);
 
-    /*  The same channel can be added multiple times. This is useful if multiple
-        modules want to be notified about user interaction.
-
-        Callbacks are stored as linked lists. See the gpio-efm32 module for details.
+    /*  Configure channel first time it is added.
     */
     if (activeChannel == LESENSE_CHANNEL_TOTAL)
     {
@@ -283,7 +279,6 @@ void addChannel(params_t& params)
         activeChannel = numChannelsUsed;
         numChannelsUsed++;
         lesenseToActiveMap[params.channel] = activeChannel;
-        currentUsers[activeChannel]++;
         channelsUsedMask |= (1 << params.channel);
 
         /* Store channel sensitivity for later calibration. */
@@ -323,6 +318,14 @@ void addChannel(params_t& params)
         calibrate(true, true, NULL);
     }
 
+
+    /*  The same channel can be added multiple times. This is useful if multiple
+        modules want to be notified about user interaction.
+
+        Callbacks are stored as linked lists. See the gpio-efm32 module for details.
+    */
+    currentUsers[activeChannel]++;
+
     /* registed call back functions. */
     if (params.onPress)
     {
@@ -349,6 +352,8 @@ void removeChannel(uint32_t lesenseChannel, FunctionPointer& callOnPress, Functi
             channel, clean up data structures. If no users are left on any
             channels, pause the lesense module.
         */
+        printf("remove channel: %d %d\r\n", lesenseChannel, activeChannel);
+
         if (activeChannel != LESENSE_CHANNEL_TOTAL)
         {
             if (callOnPress)
@@ -369,6 +374,8 @@ void removeChannel(uint32_t lesenseChannel, FunctionPointer& callOnPress, Functi
                 cleanupCallback(&onRelease[activeChannel]);
 
                 lesenseToActiveMap[lesenseChannel] = LESENSE_CHANNEL_TOTAL;
+
+                printf("remove: cleanup\r\n");
             }
 
             /* check if lesense can be turned off. */
@@ -383,6 +390,7 @@ void removeChannel(uint32_t lesenseChannel, FunctionPointer& callOnPress, Functi
             /* pause module to save power. */
             if (totalUsers == 0)
             {
+                printf("remove: pause\r\n");
                 pause();
             }
         }
@@ -638,6 +646,8 @@ static bool addCallback(FunctionPointer& newCallback, bool updates, struct Callb
     (*node)->multipleUpdates = updates;
     (*node)->callback = newCallback;
 
+    printf("add: %p %p\r\n", *node, newCallback.get_function());
+
     return true;
 }
 
@@ -648,6 +658,8 @@ static bool removeCallback(FunctionPointer& oldCallback, struct CallbackNode** n
 #warning FunctionPointer comparison not implemented yet
         if ((*node)->callback == oldCallback)
         {
+            printf("remove: %p %p\r\n", *node, oldCallback.get_function());
+
             void* trashNode = *node;
             *node = (*node)->next;
             free(trashNode);
@@ -657,6 +669,8 @@ static bool removeCallback(FunctionPointer& oldCallback, struct CallbackNode** n
 
         node = &((*node)->next);
     }
+
+    printf("remove failed: %p\r\n", oldCallback.get_function());
 
     return false;
 }

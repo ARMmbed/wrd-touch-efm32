@@ -17,6 +17,8 @@
 #ifndef __LESENSE_API_H__
 #define __LESENSE_API_H__
 
+#include "FunctionPointer.h"
+#include "FunctionPointerBase.h"
 
 #include "mbed.h"
 
