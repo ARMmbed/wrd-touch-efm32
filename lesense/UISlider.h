@@ -57,6 +57,8 @@ public:
         }
     }
 
+    ~UISlider();
+
     uint32_t getLocation();
 
     int32_t getSpeed();

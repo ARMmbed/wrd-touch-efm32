@@ -23,6 +23,18 @@
 #define printf(...)
 #endif
 
+
+UISlider::~UISlider()
+{
+    FunctionPointer onPress(this, &UISlider::sliderPressTask);
+    FunctionPointer onRelease(this, &UISlider::sliderReleaseTask);
+
+    for (std::size_t idx = 0; idx < channelsInUse; idx++)
+    {
+        lesense::removeChannel(channels[idx], onPress, onRelease);
+    }
+}
+
 /*  This function is executed when one of the analog channels crosses the
     deadzone threshold.
 */

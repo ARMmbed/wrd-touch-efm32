@@ -25,6 +25,7 @@ class AnalogButton
 {
 public:
     AnalogButton(uint32_t channel);
+    ~AnalogButton();
 
     void fall(FunctionPointer& onPress);
     void rise(FunctionPointer& onRelease);
@@ -49,6 +50,7 @@ private:
     void onPressISR();
     void onReleaseISR();
 
+    uint32_t channel;
     FunctionPointer onPressHandler;
     FunctionPointer onReleaseHandler;
 };

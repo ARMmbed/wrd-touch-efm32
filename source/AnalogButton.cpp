@@ -20,6 +20,7 @@
 
 
 AnalogButton::AnalogButton(uint32_t _channel)
+    :   channel(_channel)
 {
     if (_channel < LESENSE_CHANNEL_TOTAL)
     {
@@ -38,6 +39,14 @@ AnalogButton::AnalogButton(uint32_t _channel)
 
         lesense::addChannel(params);
     }
+}
+
+AnalogButton::~AnalogButton()
+{
+    FunctionPointer onPress(this, &AnalogButton::onPressISR);
+    FunctionPointer onRelease(this, &AnalogButton::onReleaseISR);
+
+    lesense::removeChannel(channel, onPress, onRelease);
 }
 
 void AnalogButton::fall(FunctionPointer& _onPress)
