@@ -23,9 +23,10 @@
 #include "mbed.h"
 
 
-extern FunctionPointer calibrateDoneCallback;
 
 namespace lesense {
+    extern FunctionPointer calibrateDoneCallback;
+
     typedef struct CallbackNode
     {
         struct CallbackNode* next;
@@ -76,7 +77,7 @@ namespace lesense {
     template <typename T>
     void calibrate(bool forceCalibration, bool useNewValues, T* object, void (T::*callback)(void))
     {
-        calibrateDoneCallback.attach(object, callback);
+        lesense::calibrateDoneCallback.attach(object, callback);
 
         internalCalibrate(forceCalibration, useNewValues);
     }

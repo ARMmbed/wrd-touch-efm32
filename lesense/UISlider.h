@@ -97,6 +97,11 @@ public:
     void setCallOnChange(FunctionPointer& callOnChange);
     void setCallOnRelease(FunctionPointer& callOnRelease);
 
+    template <typename T>
+    void calibrate(bool calibrateWhenActive, bool useNewValues, T* object, void (T::*member)(void))
+    {
+        lesense::calibrate(calibrateWhenActive, useNewValues, object, member);
+    }
 
     void calibrate(bool calibrateWhenActive, bool useNewValues, void (*callback)(void));
 
