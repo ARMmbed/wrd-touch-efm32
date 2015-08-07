@@ -41,10 +41,10 @@
 #define LESENSE_SCAN_FREQUENCY_HIGH        20
 
 /** Sample delay, how long the rc-oscillations are sampled. */
-#ifdef TARGET_LIKE_OBJECTADOR
-#define SAMPLE_DELAY                  120 
+#if defined(WATCH)
+#define SAMPLE_DELAY                   90
 #else
-#define SAMPLE_DELAY                   30 
+#define SAMPLE_DELAY                   30
 #endif
 
 /** Number of calibration events used to calculate threshold. */
