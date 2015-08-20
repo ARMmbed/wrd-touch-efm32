@@ -25,7 +25,7 @@
 
 #include "LESENSE_config.h"
 
-#if 1
+#if 0
 #include "swo/swo.h"
 #define printf(...) { swoprintf(__VA_ARGS__); }
 #else
