@@ -13,5 +13,9 @@
   "dependencies": {
     "mbed-hal-silabs": "~0.4.0"
   },
-  "targetDependencies": {}
+  "targetDependencies": {
+    "swo": {
+      "swo": "~1.1.0"
+    }
+  }
 }
