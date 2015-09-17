@@ -26,7 +26,7 @@ class UISlider
 public:
 
     template <std::size_t C>
-    UISlider(LESENSEName (&_channels)[C], uint32_t sensitivity)
+    UISlider(const LESENSEName (&_channels)[C], uint32_t sensitivity)
         :   channelsInUse(C),
             lastLocation(0),
             lastSpeed(0),
