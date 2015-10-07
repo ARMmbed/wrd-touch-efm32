@@ -18,6 +18,8 @@
 #include "lesense/AnalogButton.h"
 #include "lesense/lesense_api.h"
 
+// include platform constants
+#include "mbed.h"
 
 AnalogButton::AnalogButton(uint32_t _channel)
     :   channel(_channel)

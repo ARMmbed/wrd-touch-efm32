@@ -26,12 +26,19 @@
 
 UISlider::~UISlider()
 {
+    // remove callbacks for press and release
     FunctionPointer onPress(this, &UISlider::sliderPressTask);
     FunctionPointer onRelease(this, &UISlider::sliderReleaseTask);
 
     for (std::size_t idx = 0; idx < channelsInUse; idx++)
     {
         lesense::removeChannel(channels[idx], onPress, onRelease);
+    }
+
+    // if calibration in progress, remove callback
+    if (calibrateCallback)
+    {
+        lesense::cancelCallback();
     }
 }
 
@@ -292,7 +299,17 @@ void UISlider::setActiveFrequency(uint32_t freqHz)
 
 void UISlider::calibrate(bool calibrateWhenActive, bool useNewValues, void (*callback)(void))
 {
-    lesense::calibrate(calibrateWhenActive, useNewValues, callback);
+    calibrateCallback.attach(callback);
+    lesense::calibrate(calibrateWhenActive, useNewValues, this, &UISlider::calibrateDoneTask);
+}
+
+void UISlider::calibrateDoneTask(void)
+{
+    if (calibrateCallback)
+    {
+        calibrateCallback.call();
+        calibrateCallback.clear();
+    }
 }
 
 void UISlider::pause()

@@ -17,6 +17,7 @@
 
 #include "lesense/lesense_api.h"
 
+#include "mbed.h"
 #include "minar/minar.h"
 
 #include "em_lesense.h"
@@ -513,6 +514,19 @@ void calibrate(bool forceCalibration, bool useNewValues, void (*callback)(void))
     internalCalibrate(forceCalibration, useNewValues);
 }
 
+void calibrateDoneTask(void)
+{
+    if (calibrateDoneCallback)
+    {
+        calibrateDoneCallback.call();
+    }
+}
+
+void cancelCallback(void)
+{
+    calibrateDoneCallback.clear();
+}
+
 void internalCalibrate(bool forceCalibration, bool useNewValues)
 {
     if ((lesenseState == STATE_PAUSE) ||
@@ -555,19 +569,15 @@ void internalCalibrate(bool forceCalibration, bool useNewValues)
         // retake measurements
         calibrationValueIndex  = 0;
 
-        if (calibrateDoneCallback)
-        {
-            minar::Scheduler::postCallback(calibrateDoneCallback)
-                .tolerance(0);
-        }
+        minar::Scheduler::postCallback(calibrateDoneTask)
+            .tolerance(0)
+            .getHandle();
     }
     else
     {
-        if (calibrateDoneCallback)
-        {
-            minar::Scheduler::postCallback(calibrateDoneCallback)
-                .tolerance(0);
-        }
+        minar::Scheduler::postCallback(calibrateDoneTask)
+            .tolerance(0)
+            .getHandle();
     }
 }
 
@@ -655,7 +665,6 @@ static bool removeCallback(FunctionPointer& oldCallback, struct CallbackNode** n
 {
     while(*node)
     {
-#warning FunctionPointer comparison not implemented yet
         if ((*node)->callback == oldCallback)
         {
             printf("remove: %p %p\r\n", *node, oldCallback.get_function());
@@ -818,11 +827,8 @@ static void calibrationTask()
 
         printf("lesense: calibration done\n");
 
-        if (calibrateDoneCallback)
-        {
-            minar::Scheduler::postCallback(calibrateDoneCallback)
-                .tolerance(0);
-        }
+        minar::Scheduler::postCallback(calibrateDoneTask)
+            .tolerance(0);
     }
     else
     {

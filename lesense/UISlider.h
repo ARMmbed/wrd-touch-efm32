@@ -100,10 +100,12 @@ public:
     template <typename T>
     void calibrate(bool calibrateWhenActive, bool useNewValues, T* object, void (T::*member)(void))
     {
-        lesense::calibrate(calibrateWhenActive, useNewValues, object, member);
+        calibrateCallback.attach(object, member);
+        lesense::calibrate(calibrateWhenActive, useNewValues, this, &UISlider::calibrateDoneTask);
     }
 
     void calibrate(bool calibrateWhenActive, bool useNewValues, void (*callback)(void));
+    void calibrateDoneTask(void);
 
     void pause();
     void resume();
@@ -127,6 +129,8 @@ private:
     FunctionPointer callOnPress;
     FunctionPointer callOnChange;
     FunctionPointer callOnRelease;
+
+    FunctionPointer calibrateCallback;
 };
 
 

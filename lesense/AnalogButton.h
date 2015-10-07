@@ -18,8 +18,9 @@
 #define __ANALOGBUTTON_H__
 
 
-#include "mbed.h"
+#include "core-util/FunctionPointer.h"
 
+using namespace mbed::util;
 
 class AnalogButton
 {

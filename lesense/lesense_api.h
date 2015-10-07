@@ -17,12 +17,9 @@
 #ifndef __LESENSE_API_H__
 #define __LESENSE_API_H__
 
-#include "FunctionPointer.h"
-#include "FunctionPointerBase.h"
+#include "core-util/FunctionPointer.h"
 
-#include "mbed.h"
-
-
+using namespace mbed::util;
 
 namespace lesense {
     extern FunctionPointer calibrateDoneCallback;
@@ -81,6 +78,9 @@ namespace lesense {
 
         internalCalibrate(forceCalibration, useNewValues);
     }
+
+    void calibrateDoneTask(void);
+    void cancelCallback(void);
 }
 
 #endif // __LESENSE_API_H__
