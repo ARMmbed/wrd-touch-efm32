@@ -17,7 +17,7 @@
 #ifndef __UISLIDER_H__
 #define __UISLIDER_H__
 
-#include "mbed.h"
+#include "mbed-drivers/mbed.h"
 
 #include "lesense/lesense_api.h"
 

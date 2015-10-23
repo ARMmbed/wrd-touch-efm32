@@ -17,8 +17,7 @@
 
 #include "lesense/lesense_api.h"
 
-#include "mbed.h"
-#include "minar/minar.h"
+#include "mbed-drivers/mbed.h"
 
 #include "em_lesense.h"
 #include "em_acmp.h"
