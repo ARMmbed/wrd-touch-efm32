@@ -19,6 +19,23 @@
 
 #include "core-util/FunctionPointer.h"
 
+#include "LESENSE_config.h"
+
+#if defined(YOTTA_CFG_HARDWARE_LESENSE)
+#define LESENSE_CHANNEL_TOTAL       YOTTA_CFG_HARDWARE_LESENSE_TOTAL_CHANNELS
+#define LESENSE_SENSITIVITY_PERCENT YOTTA_CFG_HARDWARE_LESENSE_SENSITIVITY
+#define LESENSE_CHANNEL_IN_USE      YOTTA_CFG_HARDWARE_LESENSE_CHANNELS_IN_USE
+#define LESENSE_CH_PORT             YOTTA_CFG_HARDWARE_LESENSE_PORT
+
+#define LESENSE_IFS_ALL_CHANNELS    0xFFFF
+
+#else
+#error LESENSE module missing. Platform not supported.
+#endif
+
+
+
+
 using namespace mbed::util;
 
 namespace lesense {

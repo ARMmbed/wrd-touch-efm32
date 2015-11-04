@@ -23,7 +23,6 @@
 #include "em_acmp.h"
 #include "em_gpio.h"
 
-#include "LESENSE_config.h"
 
 #if 0
 #include "swo/swo.h"
