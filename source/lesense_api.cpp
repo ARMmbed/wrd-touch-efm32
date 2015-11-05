@@ -51,8 +51,8 @@ static state_t lesenseState = STATE_OFF;
 
 static void init();
 
-static uint8_t  channelSensitivityPercent[LESENSE_CHANNEL_IN_USE]  = {0};
-static bool     alreadyPressed[LESENSE_CHANNEL_IN_USE]             = {0};
+static uint8_t  channelSensitivityPercent[LESENSE_CHANNELS_IN_USE]  = {0};
+static bool     alreadyPressed[LESENSE_CHANNELS_IN_USE]             = {0};
 
 static uint32_t scanFrequencyIdle   = LESENSE_SCAN_FREQUENCY_LOW;
 static uint32_t scanFrequencyActive = LESENSE_SCAN_FREQUENCY_HIGH;
@@ -62,9 +62,9 @@ static uint32_t scanFrequencyActive = LESENSE_SCAN_FREQUENCY_HIGH;
     Functions and datastructures for maintaining a linked list of callbacks
     for each channel.
 */
-static struct   CallbackNode* onPress[LESENSE_CHANNEL_IN_USE]      = {0};
-static struct   CallbackNode* onRelease[LESENSE_CHANNEL_IN_USE]    = {0};
-static uint32_t currentUsers[LESENSE_CHANNEL_IN_USE]               = {0};
+static struct   CallbackNode* onPress[LESENSE_CHANNELS_IN_USE]      = {0};
+static struct   CallbackNode* onRelease[LESENSE_CHANNELS_IN_USE]    = {0};
+static uint32_t currentUsers[LESENSE_CHANNELS_IN_USE]               = {0};
 
 static bool addCallback(FunctionPointer& newCallback, bool updates, struct CallbackNode** nodes);
 static bool removeCallback(FunctionPointer& oldCallback, struct CallbackNode** node);
@@ -78,10 +78,10 @@ static void cleanupCallback(struct CallbackNode** node);
 */
 static bool     useCalibrationValues = true;
 static uint8_t  calibrationValueIndex = 0;
-static uint16_t calibrationValue[LESENSE_CHANNEL_IN_USE][NUMBER_OF_CALIBRATION_VALUES];
-static uint16_t channelMaxValue[LESENSE_CHANNEL_IN_USE];
-static uint16_t channelMinValue[LESENSE_CHANNEL_IN_USE];
-static uint16_t channelCalValue[LESENSE_CHANNEL_IN_USE];
+static uint16_t calibrationValue[LESENSE_CHANNELS_IN_USE][NUMBER_OF_CALIBRATION_VALUES];
+static uint16_t channelMaxValue[LESENSE_CHANNELS_IN_USE];
+static uint16_t channelMinValue[LESENSE_CHANNELS_IN_USE];
+static uint16_t channelCalValue[LESENSE_CHANNELS_IN_USE];
 static uint16_t GetMedianValue(uint16_t* A, uint16_t N);
 FunctionPointer calibrateDoneCallback;
 /*  End Calibration Group */
@@ -93,7 +93,7 @@ static uint16_t channelsUsedMask                            = 0;
 static uint16_t numChannelsUsed                             = 0;
 static uint32_t lastEvent[2]                                = {0};
 static uint32_t lastScanres[2]                              = {0};
-static uint16_t transferBuffer[2][LESENSE_CHANNEL_IN_USE]   = {0};
+static uint16_t transferBuffer[2][LESENSE_CHANNELS_IN_USE]  = {0};
 static uint8_t  TRANSFER_BUFFER_BANK                        = 0;
 
 static bool calibrationTaskNotPosted    = true;
@@ -111,7 +111,7 @@ static void init()
         printf("lesense: init\r\n");
 
         for(uint16_t activeChannel = 0;
-            activeChannel < LESENSE_CHANNEL_IN_USE;
+            activeChannel < LESENSE_CHANNELS_IN_USE;
             activeChannel++)
         {
             /* Init min and max values for each active channel */
@@ -380,7 +380,7 @@ void removeChannel(uint32_t lesenseChannel, FunctionPointer& callOnPress, Functi
             /* check if lesense can be turned off. */
             uint32_t totalUsers = 0;
             for (uint16_t allChannel = 0;
-                 allChannel < LESENSE_CHANNEL_IN_USE;
+                 allChannel < LESENSE_CHANNELS_IN_USE;
                  allChannel++)
             {
                 totalUsers += currentUsers[allChannel];

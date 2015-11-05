@@ -16,7 +16,7 @@
   },
   "targetDependencies": {
     "swo": {
-      "swo": "~1.1.0"
+      "swo": "^1.1.0"
     }
   }
 }

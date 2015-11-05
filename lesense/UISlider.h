@@ -115,7 +115,7 @@ private:
     void sliderPressTask();
     void sliderReleaseTask();
 
-    LESENSEName channels[LESENSE_CHANNEL_IN_USE];
+    LESENSEName channels[LESENSE_CHANNELS_IN_USE];
 
     uint32_t channelsInUse;
 
