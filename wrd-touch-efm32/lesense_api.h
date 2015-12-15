@@ -19,22 +19,23 @@
 
 #include "core-util/FunctionPointer.h"
 
-#include "LESENSE_config.h"
-
 #if defined(YOTTA_CFG_HARDWARE_LESENSE)
 #define LESENSE_CHANNEL_TOTAL       YOTTA_CFG_HARDWARE_LESENSE_TOTAL_CHANNELS
-#define LESENSE_SENSITIVITY_PERCENT YOTTA_CFG_HARDWARE_CAPSENSE_SENSITIVITY
-#define LESENSE_CHANNELS_IN_USE     YOTTA_CFG_HARDWARE_CAPSENSE_CHANNELS_IN_USE
 #define LESENSE_CH_PORT             YOTTA_CFG_HARDWARE_LESENSE_PORT
-
 #define LESENSE_IFS_ALL_CHANNELS    0xFFFF
-
 #else
 #error LESENSE module missing. Platform not supported.
 #endif
 
-
-
+#if defined(YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH)
+#define LESENSE_SAMPLE_DELAY            YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_SAMPLE_DELAY
+#define LESENSE_CHANNELS_IN_USE         YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_CHANNELS_IN_USE
+#define LESENSE_SCAN_FREQUENCY_LOW      YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_SCAN_FREQUENCY_LOW
+#define LESENSE_SCAN_FREQUENCY_HIGH     YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_SCAN_FREQUENCY_HIGH
+#define LESENSE_CALIBRATION_VALUES    YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_CALIBRATION_VALUES
+#else
+#error Platform not supported.
+#endif
 
 using namespace mbed::util;
 
@@ -56,6 +57,25 @@ namespace lesense {
         uint32_t sensitivity;
         bool updates;
     } params_t;
+
+    typedef enum {
+        Channel0 = 0,
+        Channel1 = 1,
+        Channel2 = 2,
+        Channel3 = 3,
+        Channel4 = 4,
+        Channel5 = 5,
+        Channel6 = 6,
+        Channel7 = 7,
+        Channel8 = 8,
+        Channel9 = 9,
+        Channel10 = 10,
+        Channel11 = 11,
+        Channel12 = 12,
+        Channel13 = 13,
+        Channel14 = 14,
+        Channel15 = 15,
+    } channel_t;
 
     void addChannel(params_t& parameters);
 

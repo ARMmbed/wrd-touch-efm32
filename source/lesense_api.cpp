@@ -15,7 +15,7 @@
  */
 
 
-#include "lesense/lesense_api.h"
+#include "wrd-touch-efm32/lesense_api.h"
 
 #include "mbed-drivers/mbed.h"
 
@@ -78,7 +78,7 @@ static void cleanupCallback(struct CallbackNode** node);
 */
 static bool     useCalibrationValues = true;
 static uint8_t  calibrationValueIndex = 0;
-static uint16_t calibrationValue[LESENSE_CHANNELS_IN_USE][NUMBER_OF_CALIBRATION_VALUES];
+static uint16_t calibrationValue[LESENSE_CHANNELS_IN_USE][LESENSE_CALIBRATION_VALUES];
 static uint16_t channelMaxValue[LESENSE_CHANNELS_IN_USE];
 static uint16_t channelMinValue[LESENSE_CHANNELS_IN_USE];
 static uint16_t channelCalValue[LESENSE_CHANNELS_IN_USE];
@@ -301,7 +301,7 @@ void addChannel(params_t& params)
             .exClk         = lesenseClkLF,
             .sampleClk     = lesenseClkLF,
             .exTime        = 0x0,
-            .sampleDelay   = SAMPLE_DELAY,
+            .sampleDelay   = LESENSE_SAMPLE_DELAY,
             .measDelay     = 0x0,
             .acmpThres     = 0x0,                   // don't care, configured by ACMPInit
             .sampleMode    = lesenseSampleModeCounter,
@@ -402,23 +402,44 @@ void removeChannel(uint32_t lesenseChannel, FunctionPointer& callOnPress, Functi
 
 uint16_t getValue(uint32_t lesenseChannel)
 {
-    uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
+    if (lesenseChannel < LESENSE_CHANNEL_TOTAL)
+    {
+        uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
-    return transferBuffer[TRANSFER_BUFFER_BANK ^ 0x01][activeChannel];
+        return transferBuffer[TRANSFER_BUFFER_BANK ^ 0x01][activeChannel];
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 uint16_t getMinValue(uint32_t lesenseChannel)
 {
-    uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
+    if (lesenseChannel < LESENSE_CHANNEL_TOTAL)
+    {
+        uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
-    return channelMinValue[activeChannel];
+        return channelMinValue[activeChannel];
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 uint16_t getMaxValue(uint32_t lesenseChannel)
 {
-    uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
+    if (lesenseChannel < LESENSE_CHANNEL_TOTAL)
+    {
+        uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
-    return channelMaxValue[activeChannel];
+        return channelMaxValue[activeChannel];
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 uint32_t getEventTimestamp()
@@ -736,7 +757,7 @@ static uint16_t GetMedianValue(uint16_t* A, uint16_t N)
     onRelease callbacks called.
 
     In the calibrationTask, all channels are sampled for
-    NUMBER_OF_CALIBRATION_VALUES using multiple rounds of interrupts. Once
+    LESENSE_CALIBRATION_VALUES using multiple rounds of interrupts. Once
     completed, the median value for each channel is found and used as the
     maxValue observed. Each channel's threshold is set based on the
     sensitivity and the maxValue. The minValue is reset to maxValue.
@@ -764,7 +785,7 @@ static void calibrationTask()
 
     /* Wrap around calibrationValueIndex */
     calibrationValueIndex++;
-    if(calibrationValueIndex >= NUMBER_OF_CALIBRATION_VALUES)
+    if(calibrationValueIndex >= LESENSE_CALIBRATION_VALUES)
     {
         /* Calculate max/min-value for each channel and set threshold */
         for(uint32_t lesenseChannel = 0;
@@ -776,7 +797,7 @@ static void calibrationTask()
                 uint16_t activeChannel = lesenseToActiveMap[lesenseChannel];
 
                 /* Store the median. */
-                channelCalValue[activeChannel] = GetMedianValue(calibrationValue[activeChannel], NUMBER_OF_CALIBRATION_VALUES);
+                channelCalValue[activeChannel] = GetMedianValue(calibrationValue[activeChannel], LESENSE_CALIBRATION_VALUES);
 
                 /*  The median can either be used automatically
                     or the thresholds can be set manually.

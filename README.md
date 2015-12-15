@@ -1,4 +1,4 @@
-lesense-efm32
+wrd-touch-efm32
 =============
 
-Low-energy sensor module for the EFM32
+EFM32 implementation of the Watch Reference Design touch API.

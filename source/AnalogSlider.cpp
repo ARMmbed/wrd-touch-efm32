@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "lesense/UISlider.h"
+#include "wrd-touch/AnalogSlider.h"
+#include "wrd-touch-efm32/lesense_api.h"
 
 #if 0
 #include "swo/swo.h"
@@ -23,16 +24,55 @@
 #define printf(...)
 #endif
 
+#if !defined(YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_SENSITIVITY)
+#error platform not supported
+#endif
 
-UISlider::~UISlider()
+AnalogSlider::AnalogSlider(const uint32_t* _channelMap, uint32_t _channelsInUse)
+    :   channelMap(NULL),
+        channelsInUse(_channelsInUse),
+        location(0),
+        speed(0),
+        acceleration(0),
+        pressed(false),
+        eventTimestamp(0)
 {
-    // remove callbacks for press and release
-    FunctionPointer onPress(this, &UISlider::sliderPressTask);
-    FunctionPointer onRelease(this, &UISlider::sliderReleaseTask);
+    /*  Allocate and store channelMap.
+    */
+    channelMap = new uint32_t[channelsInUse];
+
+    /*  Setup callback functions to calculate slider position.
+    */
+    FunctionPointer onPress(this, &AnalogSlider::sliderPressTask);
+    FunctionPointer onRelease(this, &AnalogSlider::sliderReleaseTask);
+
+    /*  Add channels defined by channel map.
+    */
+    lesense::params_t params;
+
+    params.onPress = onPress;
+    params.onRelease = onRelease;
+    params.sensitivity = YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_SENSITIVITY;
+    params.updates = true;
 
     for (std::size_t idx = 0; idx < channelsInUse; idx++)
     {
-        lesense::removeChannel(channels[idx], onPress, onRelease);
+        channelMap[idx] = _channelMap[idx];
+        params.channel = _channelMap[idx];
+
+        lesense::addChannel(params);
+    }
+}
+
+AnalogSlider::~AnalogSlider()
+{
+    // remove callbacks for press and release
+    FunctionPointer onPress(this, &AnalogSlider::sliderPressTask);
+    FunctionPointer onRelease(this, &AnalogSlider::sliderReleaseTask);
+
+    for (std::size_t idx = 0; idx < channelsInUse; idx++)
+    {
+        lesense::removeChannel(channelMap[idx], onPress, onRelease);
     }
 
     // if calibration in progress, remove callback
@@ -40,18 +80,20 @@ UISlider::~UISlider()
     {
         lesense::cancelCallback();
     }
+
+    delete[] channelMap;
 }
 
 /*  This function is executed when one of the analog channels crosses the
     deadzone threshold.
 */
-void UISlider::sliderPressTask()
+void AnalogSlider::sliderPressTask()
 {
     /*  Get the timestamp for this event.
     */
-    uint32_t thisEvent = lesense::getEventTimestamp();
+    uint32_t newEventTimestamp = lesense::getEventTimestamp();
 
-    if (thisEvent != lastEvent)
+    if (newEventTimestamp != eventTimestamp)
     {
         /*  Each analog channel is treated as a "pressure" sensor, where a hard
             press corresponds to a low value and a soft press as a high value.
@@ -71,7 +113,7 @@ void UISlider::sliderPressTask()
         */
         for(uint32_t channelIndex = 0; channelIndex < channelsInUse; channelIndex++)
         {
-            uint32_t lesenseChannel = channels[channelIndex];
+            uint32_t lesenseChannel = channelMap[channelIndex];
             uint32_t value = lesense::getValue(lesenseChannel);
             uint32_t maxValue = lesense::getMaxValue(lesenseChannel);
             uint32_t minValue = lesense::getMinValue(lesenseChannel);
@@ -97,7 +139,7 @@ void UISlider::sliderPressTask()
         printf("%3d %3d %3d %3d\n", (int) pressure[3], (int) pressure[2], (int) pressure[1], (int) pressure[0]);
         printf("%3d %3d %3d %3d (%3d)\n", (int) pressureNorm[3], (int) pressureNorm[2], (int) pressureNorm[1], (int) pressureNorm[0], (int) (100 - totalNorm));
 
-        uint32_t location = 0;
+        uint32_t newLocation = 0;
         uint32_t locationNorm = 0;
         uint32_t maxChannel = 0;
 
@@ -109,7 +151,7 @@ void UISlider::sliderPressTask()
         {
             pressure[channelIndex] = pressure[channelIndex] * 1000 / (total + 1);
 
-            location += ((channelIndex+2) * pressure[channelIndex]);
+            newLocation += ((channelIndex+2) * pressure[channelIndex]);
             locationNorm += ((channelIndex + 2) * pressureNorm[channelIndex]);
 
             /*  Find the channel with the highest pressure (which is where the
@@ -145,26 +187,26 @@ void UISlider::sliderPressTask()
 
         if (locationNorm > 0)
         {
-            location = locationNorm;
+            newLocation = locationNorm;
         }
 
         /* Shift location caused by the fictitious channel. */
-        location -= 1000;
+        newLocation -= 1000;
 
         /* If the location has changed, calculate speed and acceleration. */
         bool locationChanged = false;
-        if (location != lastLocation)
+        if (newLocation != location)
         {
-            int32_t speed = (lastLocation != 0) ? location - lastLocation : 0;
+            int32_t newSpeed = (location != 0) ? newLocation - location : 0;
 
-            lastAcceleration = speed - lastSpeed;
-            lastSpeed = speed;
+            acceleration = newSpeed - speed;
+            speed = newSpeed;
             locationChanged = true;
         }
-        lastLocation = location;
+        location = newLocation;
 
         /* call callback functions if the location or state has changed. */
-        if (sliderIsPressed == false)
+        if (pressed == false)
         {
             if (callOnPress)
             {
@@ -179,21 +221,21 @@ void UISlider::sliderPressTask()
             }
         }
 
-        sliderIsPressed = true;
-        lastEvent = thisEvent;
+        pressed = true;
+        eventTimestamp = newEventTimestamp;
     }
 }
 
 /*  This block is executed when one of the analog channels crosses the
     deadzone threshold and returns to its original state.
 */
-void UISlider::sliderReleaseTask()
+void AnalogSlider::sliderReleaseTask()
 {
     /*  Get the timestamp for this event.
     */
-    uint32_t thisEvent = lesense::getEventTimestamp();
+    uint32_t newEventTimestamp = lesense::getEventTimestamp();
 
-    if (thisEvent != lastEvent)
+    if (newEventTimestamp != eventTimestamp)
     {
         /*  Query all channels. The slider has been released when none of the
             channels are pressed.
@@ -202,7 +244,7 @@ void UISlider::sliderReleaseTask()
 
         for(uint32_t channelIndex = 0; channelIndex < channelsInUse; channelIndex++)
         {
-            uint32_t lesenseChannel = channels[channelIndex];
+            uint32_t lesenseChannel = channelMap[channelIndex];
 
             printf("%d %d\n", (int) channelIndex, (int) lesense::channelIsActive(lesenseChannel));
 
@@ -211,7 +253,7 @@ void UISlider::sliderReleaseTask()
 
         if (noChannelsPressed)
         {
-            sliderIsPressed = false;
+            pressed = false;
 
             if (callOnRelease)
             {
@@ -221,103 +263,36 @@ void UISlider::sliderReleaseTask()
             /*  Reset the location when the slider is released to avoid
                 discontinuity the next time the slider is pressed.
             */
-            lastLocation = 0;
+            location = 0;
         }
 
-        lastEvent = thisEvent;
+        eventTimestamp = newEventTimestamp;
     }
 }
 
-
-/*  Set callback functions.
-*/
-void UISlider::setCallOnPress(void (*_callOnPress)(void))
-{
-    callOnPress.attach(_callOnPress);
-}
-
-void UISlider::setCallOnChange(void (*_callOnChange)(void))
-{
-    callOnChange.attach(_callOnChange);
-}
-
-void UISlider::setCallOnRelease(void (*_callOnRelease)(void))
-{
-    callOnRelease.attach(_callOnRelease);
-}
-
-void UISlider::setCallOnPress(FunctionPointer& _callOnPress)
-{
-    callOnPress = _callOnPress;
-}
-
-void UISlider::setCallOnChange(FunctionPointer& _callOnChange)
-{
-    callOnChange = _callOnChange;
-}
-
-void UISlider::setCallOnRelease(FunctionPointer& _callOnRelease)
-{
-    callOnRelease = _callOnRelease;
-}
-
-
-/*  Get slider status.
-*/
-bool UISlider::isPressed()
-{
-    return sliderIsPressed;
-}
-
-uint32_t UISlider::getLocation()
-{
-    return lastLocation;
-}
-
-int32_t UISlider::getSpeed()
-{
-    return lastSpeed;
-}
-
-int32_t UISlider::getAcceleration()
-{
-    return lastAcceleration;
-}
-
-
 /*  Set slider settings.
 */
-void UISlider::setIdleFrequency(uint32_t freqHz)
+void AnalogSlider::setIdleFrequency(uint32_t freqHz)
 {
     lesense::setIdleFrequency(freqHz);
 }
 
-void UISlider::setActiveFrequency(uint32_t freqHz)
+void AnalogSlider::setActiveFrequency(uint32_t freqHz)
 {
     lesense::setActiveFrequency(freqHz);
 }
 
-void UISlider::calibrate(bool calibrateWhenActive, bool useNewValues, void (*callback)(void))
+void AnalogSlider::calibrate(bool calibrateWhenActive, bool useNewValues)
 {
-    calibrateCallback.attach(callback);
-    lesense::calibrate(calibrateWhenActive, useNewValues, this, &UISlider::calibrateDoneTask);
+    lesense::calibrate(calibrateWhenActive, useNewValues, this, &AnalogSlider::calibrateDoneTask);
 }
 
-void UISlider::calibrateDoneTask(void)
-{
-    if (calibrateCallback)
-    {
-        calibrateCallback.call();
-        calibrateCallback.clear();
-    }
-}
-
-void UISlider::pause()
+void AnalogSlider::pause()
 {
     lesense::pause();
 }
 
-void UISlider::resume()
+void AnalogSlider::resume()
 {
     lesense::resume();
 }

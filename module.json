@@ -1,9 +1,9 @@
 {
-  "name": "lesense-efm32",
+  "name": "wrd-touch-efm32",
   "version": "3.0.0",
-  "description": "Low-energy module for the EFM32",
-  "author": "Marcus Chang",
-  "homepage": "https://github.com/ARMmbed/lesense-efm32",
+  "description": "EFM32 implementation of the Watch Reference Design touch API.",
+  "author": "Marcus Chang <marcus.chang@arm.com>",
+  "homepage": "https://github.com/ARMmbed/wrd-touch-efm32",
   "licenses": [
     {
       "url": "https://spdx.org/licenses/Apache-2.0",

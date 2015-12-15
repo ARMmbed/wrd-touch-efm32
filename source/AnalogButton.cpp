@@ -14,29 +14,29 @@
  * limitations under the License.
  */
 
+#include "wrd-touch/AnalogButton.h"
+#include "wrd-touch-efm32/lesense_api.h"
 
-#include "lesense/AnalogButton.h"
-#include "lesense/lesense_api.h"
-
-// include platform constants
-#include "mbed-drivers/mbed.h"
+#if !defined(YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_SENSITIVITY)
+#error platform not supported
+#endif
 
 AnalogButton::AnalogButton(uint32_t _channel)
     :   channel(_channel)
 {
-    if (_channel < LESENSE_CHANNEL_TOTAL)
+    if (channel < LESENSE_CHANNEL_TOTAL)
     {
-        FunctionPointer _onPress(this, &AnalogButton::onPressISR);
-        FunctionPointer _onRelease(this, &AnalogButton::onReleaseISR);
+        FunctionPointer onPress(this, &AnalogButton::onPressTask);
+        FunctionPointer onRelease(this, &AnalogButton::onReleaseTask);
 
         /*  Add channel
         */
         lesense::params_t params;
 
-        params.channel = _channel;
-        params.onPress = _onPress;
-        params.onRelease = _onRelease;
-        params.sensitivity = LESENSE_SENSITIVITY_PERCENT;
+        params.channel = channel;
+        params.onPress = onPress;
+        params.onRelease = onRelease;
+        params.sensitivity = YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_SENSITIVITY;
         params.updates = false;
 
         lesense::addChannel(params);
@@ -45,95 +45,23 @@ AnalogButton::AnalogButton(uint32_t _channel)
 
 AnalogButton::~AnalogButton()
 {
-    FunctionPointer onPress(this, &AnalogButton::onPressISR);
-    FunctionPointer onRelease(this, &AnalogButton::onReleaseISR);
+    FunctionPointer onPress(this, &AnalogButton::onPressTask);
+    FunctionPointer onRelease(this, &AnalogButton::onReleaseTask);
 
     lesense::removeChannel(channel, onPress, onRelease);
 }
 
-void AnalogButton::fall(FunctionPointer& _onPress)
+int32_t AnalogButton::getValue(void)
 {
-    onPressHandler = _onPress;
+    return lesense::getValue(channel);
 }
 
-void AnalogButton::rise(FunctionPointer& _onRelease)
+int32_t AnalogButton::getMinValue(void)
 {
-    onReleaseHandler = _onRelease;
+    return lesense::getMinValue(channel);
 }
 
-void AnalogButton::onPressISR()
+int32_t AnalogButton::getMaxValue(void)
 {
-    if (onPressHandler)
-    {
-        onPressHandler.call();
-    }
+    return lesense::getMaxValue(channel);
 }
-
-void AnalogButton::onReleaseISR()
-{
-    if (onReleaseHandler)
-    {
-        onReleaseHandler.call();
-    }
-}
-
-
-#if 0
-AnalogButton::AnalogButton(uint32_t _channel)
-    :   channel(_channel),
-        onPressHandler(),
-        onReleaseHandler(),
-        sensitivity(90),
-        multipleUpdates(false)
-{
-
-}
-
-
-- (id)initWithChannel:(uint32_t)newChannel
-          callOnPress:(yt_callback_t)newCallOnPress
-        callOnRelease:(yt_callback_t)newCallOnRelease
-          sensitivity:(uint8_t)newSensitivity
-      multipleUpdates:(bool)newMultipleUpdates
-{
-  self = [super init];
-  YTError result = ytError(YTSuccess);
-
-  if (self)
-  {
-    channel = newChannel;
-    sensitivity = newSensitivity;
-    multipleUpdates = newMultipleUpdates;
-
-    result = [LeSense addChannel:newChannel
-                 withCallOnPress:newCallOnPress
-                   callOnRelease:newCallOnRelease
-                     sensitivity:newSensitivity
-                      andUpdates:newMultipleUpdates];
-
-    onPressCache = [[NSMutableArray alloc] init];
-    onReleaseCache = [[NSMutableArray alloc] init];
-
-    if (newCallOnPress)
-    {
-      [onPressCache addObject:newCallOnPress];
-    }
-
-    if (newCallOnRelease)
-    {
-      [onReleaseCache addObject:newCallOnRelease];
-    }
-  }
-
-  if (ytErrorIsSuccess(result))
-  {
-    return self;
-  }
-  else
-  {
-    return nil;
-  }
-}
-
-#endif
-
