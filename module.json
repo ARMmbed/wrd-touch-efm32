@@ -12,7 +12,7 @@
   ],
   "dependencies": {
     "core-util": "^1.0.0",
-    "mbed-hal-silabs": "~0.5.0"
+    "mbed-hal-silabs": "^1.1.0"
   },
   "targetDependencies": {
     "swo": {
