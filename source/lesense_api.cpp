@@ -15,14 +15,13 @@
  */
 
 
-#include "wrd-touch-efm32/lesense_api.h"
+#include "wrd-touch/lesense_api.h"
 
 #include "mbed-drivers/mbed.h"
 
 #include "em_lesense.h"
 #include "em_acmp.h"
 #include "em_gpio.h"
-
 
 #if 0
 #include "swo/swo.h"
@@ -70,7 +69,6 @@ static bool addCallback(FunctionPointer& newCallback, bool updates, struct Callb
 static bool removeCallback(FunctionPointer& oldCallback, struct CallbackNode** node);
 static void cleanupCallback(struct CallbackNode** node);
 
-
 /*  End Linked List Group */
 
 /*  Calibration Group
@@ -100,8 +98,6 @@ static bool calibrationTaskNotPosted    = true;
 static bool scanCompleteTaskNotPosted   = true;
 static bool buttonWakeupTaskNotPosted   = true;
 /*  End IRQ Group */
-
-
 
 /*  Private function for initializing the lesense module. */
 static void init()
@@ -247,10 +243,6 @@ static void init()
     }
 }
 
-
-
-
-
 /*  Add channel
 */
 void addChannel(params_t& params)
@@ -337,8 +329,6 @@ void addChannel(params_t& params)
     }
 }
 
-
-
 void removeChannel(uint32_t lesenseChannel, FunctionPointer& callOnPress, FunctionPointer& callOnRelease)
 {
     /* Sanity check. */
@@ -396,10 +386,8 @@ void removeChannel(uint32_t lesenseChannel, FunctionPointer& callOnPress, Functi
     }
 }
 
-
 /*  Get status.
 */
-
 uint16_t getValue(uint32_t lesenseChannel)
 {
     if (lesenseChannel < LESENSE_CHANNEL_TOTAL)
@@ -442,7 +430,7 @@ uint16_t getMaxValue(uint32_t lesenseChannel)
     }
 }
 
-uint32_t getEventTimestamp()
+uint32_t getTimestamp()
 {
     return lastEvent[TRANSFER_BUFFER_BANK ^ 0x01];
 }
@@ -453,8 +441,6 @@ bool channelIsActive(uint32_t lesenseChannel)
 
   return alreadyPressed[activeChannel];
 }
-
-
 
 /*  Update the sampling frequency used when the module is in the idle state,
     i.e., none of the channels are above the specified threshold.
@@ -541,8 +527,10 @@ void calibrateDoneTask(void)
     }
 }
 
-void cancelCallback(void)
+void cancelCalibration(void)
 {
+    useCalibrationValues = false;
+
     calibrateDoneCallback.clear();
 }
 
@@ -600,8 +588,6 @@ void internalCalibrate(bool forceCalibration, bool useNewValues)
     }
 }
 
-
-
 void pause()
 {
     // WARNING: should this be in a minar task?
@@ -650,9 +636,6 @@ void resume()
         LESENSE_ScanStart();
     }
 }
-
-
-
 
 /*  addCallback, removeCallback, and cleanupCallback maintain the linkedlists
     with call back functions.
@@ -714,8 +697,6 @@ static void cleanupCallback(struct CallbackNode** node)
         node = &((*node)->next);
     }
 }
-
-
 
 /****************************************************************************
  * Returns median value in input array of size N
@@ -880,7 +861,6 @@ static void buttonWakeupTask()
     buttonWakeupTaskNotPosted = true;
     NVIC_EnableIRQ(LESENSE_IRQn);
 }
-
 
 static void scanCompleteTask()
 {
@@ -1103,4 +1083,3 @@ void LESENSE_IRQHandler(void)
     /* Clear interrupt flag */
     LESENSE_IntClear(_LESENSE_IFC_MASK);
 }
-

@@ -85,7 +85,7 @@ namespace lesense {
     uint16_t getMinValue(uint32_t channel);
     uint16_t getMaxValue(uint32_t channel);
 
-    uint32_t getEventTimestamp();
+    uint32_t getTimestamp();
     uint16_t getCalibrationValueForChannel(uint32_t channel);
 
     bool channelIsActive(uint32_t channel);
@@ -117,7 +117,7 @@ namespace lesense {
     }
 
     void calibrateDoneTask(void);
-    void cancelCallback(void);
+    void cancelCalibration(void);
 }
 
 #endif // __LESENSE_API_H__
