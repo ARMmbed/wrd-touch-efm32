@@ -577,14 +577,12 @@ void internalCalibrate(bool forceCalibration, bool useNewValues)
         calibrationValueIndex  = 0;
 
         minar::Scheduler::postCallback(calibrateDoneTask)
-            .tolerance(0)
-            .getHandle();
+            .tolerance(0);
     }
     else
     {
         minar::Scheduler::postCallback(calibrateDoneTask)
-            .tolerance(0)
-            .getHandle();
+            .tolerance(0);
     }
 }
 

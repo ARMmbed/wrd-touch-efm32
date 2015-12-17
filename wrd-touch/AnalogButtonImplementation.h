@@ -24,7 +24,7 @@ using namespace mbed::util;
 class AnalogButtonImplementation
 {
 public:
-    AnalogButtonImplementation(uint32_t channel);
+    AnalogButtonImplementation(uint32_t channel, bool multipleUpdatees = false);
     ~AnalogButtonImplementation();
 
     void fall(FunctionPointer onPress);

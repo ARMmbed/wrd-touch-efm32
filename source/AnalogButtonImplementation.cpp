@@ -21,7 +21,7 @@
 #error platform not supported
 #endif
 
-AnalogButtonImplementation::AnalogButtonImplementation(uint32_t _channel)
+AnalogButtonImplementation::AnalogButtonImplementation(uint32_t _channel, bool multipleUpdates)
     :   channel(_channel)
 {
     if (channel < LESENSE_CHANNEL_TOTAL)
@@ -37,7 +37,7 @@ AnalogButtonImplementation::AnalogButtonImplementation(uint32_t _channel)
         params.onPress = onPress;
         params.onRelease = onRelease;
         params.sensitivity = YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_SENSITIVITY;
-        params.updates = true;
+        params.updates = multipleUpdates;
 
         lesense::addChannel(params);
     }
