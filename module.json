@@ -11,8 +11,8 @@
     }
   ],
   "dependencies": {
-    "core-util": "^1.0.0",
-    "mbed-hal-silabs": "^1.1.0"
+    "mbed-drivers": "*",
+    "mbed-hal-silabs": "*"
   },
   "targetDependencies": {
     "swo": {
