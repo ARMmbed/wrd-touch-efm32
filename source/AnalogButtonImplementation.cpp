@@ -17,7 +17,7 @@
 #include "wrd-touch/AnalogButtonImplementation.h"
 #include "wrd-touch/lesense_api.h"
 
-#if !defined(YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_SENSITIVITY)
+#if !defined(YOTTA_CFG_HARDWARE_WRD_TOUCH_SENSITIVITY)
 #error platform not supported
 #endif
 
@@ -36,7 +36,7 @@ AnalogButtonImplementation::AnalogButtonImplementation(uint32_t _channel, bool m
         params.channel = channel;
         params.onPress = onPress;
         params.onRelease = onRelease;
-        params.sensitivity = YOTTA_CFG_HARDWARE_WEARABLE_REFERENCE_DESIGN_TOUCH_SENSITIVITY;
+        params.sensitivity = YOTTA_CFG_HARDWARE_WRD_TOUCH_SENSITIVITY;
         params.updates = multipleUpdates;
 
         lesense::addChannel(params);
